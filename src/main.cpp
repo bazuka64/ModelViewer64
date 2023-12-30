@@ -70,11 +70,9 @@ int main()
 
 	Shader shader("shader/shader.vert", "shader/shader.frag");
 
-	//Model model("G:/res/meirin/meirin.pmx", shader);
-	Model model("../../res/meirin/meirin.pmx", shader);
+	Model model("G:/res/meirin/meirin.pmx", shader);
 
-	//Animation anim("G:/res/VMD/極楽浄土/極楽上半身2ボーンが長い用.vmd");
-	Animation anim("../..//res/gokuraku.vmd");
+	Animation anim("G:/res/VMD/極楽浄土/極楽上半身2ボーンが長い用.vmd");
 
 	model.anim = &anim;
 
