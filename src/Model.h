@@ -190,6 +190,7 @@ public:
 			if (pmxBone.parent_index != -1)
 			{
 				bone.parent = &bones[pmxBone.parent_index];
+				bone.parent->children.push_back(&bone);
 				bone.ParentOffset = glm::translate(glm::mat4(1), bone.position - bone.parent->position);
 			}
 			else
@@ -200,10 +201,6 @@ public:
 			if (pmxBone.ik_target_bone_index != 0)
 				ikBones.push_back(&bone);
 		}
-
-		for (Bone& bone : bones)
-			if (bone.parent)
-				bone.parent->children.push_back(&bone);
 	}
 
 	void Draw(float dt)
