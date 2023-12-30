@@ -1,0 +1,8 @@
+imgui.ini
+
+/.vs/
+
+/x64/Debug/*
+!/x64/Debug/*.exe
+!/x64/Debug/*.dll
+!/x64/Debug/shader/
