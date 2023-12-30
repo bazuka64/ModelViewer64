@@ -56,12 +56,75 @@ public:
 	Animation* anim;
 	float animFrame;
 
+	struct RigidBody
+	{
+		PmxRigidBody* pmxBody;
+		btRigidBody* btBody;
+		int type; // 0:kinematic 1:dynamic 2:dynamic
+		Bone* bone;
+		glm::mat4 fromBone;
+		glm::mat4 fromBody;
+	};
+	std::vector<RigidBody> bodies;
+	btDiscreteDynamicsWorld* world;
+
 	Model(std::string path, Shader& shader) :shader(shader)
 	{
 		std::ifstream file(path, std::ios::binary);
 		if (file.fail())throw;
 		model.Read(&file);
 
+		BuildBuffers();
+
+		InitMaterial(path);
+
+		InitBone();
+
+		InitWorld();
+		InitRigidBody();
+		InitJoint();
+	}
+
+	void Draw(float dt)
+	{
+		animFrame += dt * 30;
+
+		ProcessAnimation();
+
+		UpdateGlobalTransform(&bones[0]);
+
+		ProcessIK();
+
+		ProcessPhysics(dt);
+
+		for (Bone& bone : bones)
+			FinalTransform[bone.id] = bone.GlobalTransform * bone.InverseBindPose;
+
+		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+		glBufferData(GL_UNIFORM_BUFFER, FinalTransform.size() * sizeof(glm::mat4), FinalTransform.data(), GL_STREAM_DRAW);
+		glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+
+		glUseProgram(shader.program);
+		glBindVertexArray(vao);
+
+		for (Mesh& mesh : meshes)
+		{
+			if (mesh.texture_index != -1)
+				glBindTexture(GL_TEXTURE_2D, textures[mesh.texture_index].id);
+
+			glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, (void*)(mesh.index_offset * sizeof(int)));
+
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
+
+		glBindVertexArray(0);
+		glUseProgram(0);
+	}
+
+private:
+
+	void BuildBuffers()
+	{
 		std::vector<Vertex> vertices(model.vertex_count);
 		for (int i = 0; i < model.vertex_count; i++)
 		{
@@ -110,7 +173,7 @@ public:
 		}
 
 		std::vector<int> indices(model.index_count);
-		for (int i = 0; i < model.index_count/3; i++)
+		for (int i = 0; i < model.index_count / 3; i++)
 		{
 			indices[i * 3 + 0] = model.indices[i * 3 + 2];
 			indices[i * 3 + 1] = model.indices[i * 3 + 1];
@@ -143,7 +206,10 @@ public:
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(int), indices.data(), GL_STATIC_DRAW);
 
 		glBindVertexArray(0);
+	}
 
+	void InitMaterial(std::string path)
+	{
 		int offset = 0;
 		meshes.resize(model.material_count);
 		for (int i = 0; i < model.material_count; i++)
@@ -166,7 +232,10 @@ public:
 			conv.Utf16ToCp932(wstr.c_str(), wstr.length(), &str);
 			textures[i].Load(dir + str);
 		}
+	}
 
+	void InitBone()
+	{
 		glGenBuffers(1, &ubo);
 		FinalTransform.resize(model.bone_count);
 		bones.resize(model.bone_count);
@@ -203,38 +272,170 @@ public:
 		}
 	}
 
-	void Draw(float dt)
+	void InitWorld()
 	{
-		animFrame += dt * 30;
+		auto configuration = new btDefaultCollisionConfiguration();
+		auto dispatcher = new btCollisionDispatcher(configuration);
+		auto overlappingPairCache = new btDbvtBroadphase();
+		auto solver = new btSequentialImpulseConstraintSolver();
+		world = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, configuration);
+		world->setGravity(btVector3(0, -10 * 10, 0));
+	}
 
-		ProcessAnimation();
-
-		UpdateGlobalTransform(&bones[0]);
-
-		ProcessIK();
-
-		for (Bone& bone : bones)
-			FinalTransform[bone.id] = bone.GlobalTransform * bone.InverseBindPose;
-
-		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-		glBufferData(GL_UNIFORM_BUFFER, FinalTransform.size() * sizeof(glm::mat4), FinalTransform.data(), GL_STREAM_DRAW);
-		glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
-
-		glUseProgram(shader.program);
-		glBindVertexArray(vao);
-
-		for (Mesh& mesh : meshes)
+	void InitRigidBody()
+	{
+		bodies.resize(model.rigid_body_count);
+		for (int i = 0; i < model.rigid_body_count; i++)
 		{
-			if (mesh.texture_index != -1)
-				glBindTexture(GL_TEXTURE_2D, textures[mesh.texture_index].id);
+			PmxRigidBody& pmxBody = model.rigid_bodies[i];
+			RigidBody& body = bodies[i];
 
-			glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, (void*)(mesh.index_offset * sizeof(int)));
+			body.pmxBody = &pmxBody;
+			body.type = pmxBody.physics_calc_type;
 
-			glBindTexture(GL_TEXTURE_2D, 0);
+			btCollisionShape* shape = NULL;
+			if (pmxBody.shape == 0)
+				shape = new btSphereShape(pmxBody.size[0]);
+			else if (pmxBody.shape == 1)
+				shape = new btBoxShape(btVector3(pmxBody.size[0], pmxBody.size[1], pmxBody.size[2]));
+			else if (pmxBody.shape == 2)
+				shape = new btCapsuleShape(pmxBody.size[0], pmxBody.size[1]);
+			else
+				throw;
+
+			float mass = 0;
+			btVector3 localInertia(0, 0, 0);
+			if (body.type != 0)
+			{
+				mass = pmxBody.mass;
+				shape->calculateLocalInertia(mass, localInertia);
+			}
+
+			glm::vec3 startPos(
+				pmxBody.position[0],
+				pmxBody.position[1],
+				-pmxBody.position[2]
+			);
+			glm::mat4 startRot = glm::eulerAngleYXZ(
+				-pmxBody.orientation[1],
+				-pmxBody.orientation[0],
+				pmxBody.orientation[2]
+			);
+
+			btTransform transform;
+			transform.setFromOpenGLMatrix((float*)&startRot);
+			transform.setOrigin(btVector3(startPos.x, startPos.y, startPos.z));
+			auto motion = new btDefaultMotionState(transform);
+
+			btRigidBody::btRigidBodyConstructionInfo info(mass, motion, shape, localInertia);
+			info.m_friction = pmxBody.friction;
+			info.m_restitution = pmxBody.repulsion;
+			info.m_linearDamping = pmxBody.move_attenuation;
+			info.m_angularDamping = pmxBody.rotation_attenuation;
+			body.btBody = new btRigidBody(info);
+
+			if (body.type == 0)
+			{
+				body.btBody->setCollisionFlags(body.btBody->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+				body.btBody->setActivationState(DISABLE_DEACTIVATION);
+			}
+
+			world->addRigidBody(body.btBody, 1 << pmxBody.group, pmxBody.mask);
+
+			if (pmxBody.target_bone != 1)
+			{
+				body.bone = &bones[pmxBody.target_bone];
+				body.fromBone = glm::translate(glm::mat4(1), startPos - body.bone->position) * startRot;
+				body.fromBody = glm::inverse(body.fromBone);
+			}
 		}
+	}
 
-		glBindVertexArray(0);
-		glUseProgram(0);
+	void InitJoint()
+	{
+		for (int i = 0; i < model.joint_count; i++)
+		{
+			PmxJoint& joint = model.joints[i];
+
+			RigidBody& bodyA = bodies[joint.param.rigid_body1];
+			RigidBody& bodyB = bodies[joint.param.rigid_body2];
+
+			btTransform transform;
+			transform.setOrigin(btVector3(
+				joint.param.position[0],
+				joint.param.position[1],
+				-joint.param.position[2]
+			));
+			btQuaternion rot;
+			rot.setEuler(
+				-joint.param.orientaiton[1],
+				-joint.param.orientaiton[0],
+				joint.param.orientaiton[2]
+			);
+			transform.setRotation(rot);
+
+			btTransform frameInA;
+			bodyA.btBody->getMotionState()->getWorldTransform(frameInA);
+			frameInA = frameInA.inverse() * transform;
+			btTransform frameInB;
+			bodyB.btBody->getMotionState()->getWorldTransform(frameInB);
+			frameInB = frameInB.inverse() * transform;
+
+			auto constraint = new btGeneric6DofSpringConstraint(*bodyA.btBody, *bodyB.btBody, frameInA, frameInB, true);
+			world->addConstraint(constraint);
+
+			constraint->setLinearLowerLimit(btVector3(
+				joint.param.move_limitation_min[0],
+				joint.param.move_limitation_min[1],
+				joint.param.move_limitation_min[2]
+			));
+			constraint->setLinearUpperLimit(btVector3(
+				joint.param.move_limitation_max[0],
+				joint.param.move_limitation_max[1],
+				joint.param.move_limitation_max[2]
+			));
+			constraint->setAngularLowerLimit(btVector3(
+				joint.param.rotation_limitation_min[0],
+				joint.param.rotation_limitation_min[1],
+				joint.param.rotation_limitation_min[2]
+			));
+			constraint->setAngularUpperLimit(btVector3(
+				joint.param.rotation_limitation_max[0],
+				joint.param.rotation_limitation_max[1],
+				joint.param.rotation_limitation_max[2]
+			));
+
+			if (joint.param.spring_move_coefficient[0] != 0)
+			{
+				constraint->enableSpring(0, true);
+				constraint->setStiffness(0, joint.param.spring_move_coefficient[0]);
+			}
+			if (joint.param.spring_move_coefficient[1] != 0)
+			{
+				constraint->enableSpring(1, true);
+				constraint->setStiffness(1, joint.param.spring_move_coefficient[1]);
+			}
+			if (joint.param.spring_move_coefficient[2] != 0)
+			{
+				constraint->enableSpring(2, true);
+				constraint->setStiffness(2, joint.param.spring_move_coefficient[2]);
+			}
+			if (joint.param.spring_rotation_coefficient[0] != 0)
+			{
+				constraint->enableSpring(3, true);
+				constraint->setStiffness(3, joint.param.spring_rotation_coefficient[0]);
+			}
+			if (joint.param.spring_rotation_coefficient[1] != 0)
+			{
+				constraint->enableSpring(4, true);
+				constraint->setStiffness(4, joint.param.spring_rotation_coefficient[1]);
+			}
+			if (joint.param.spring_rotation_coefficient[2] != 0)
+			{
+				constraint->enableSpring(5, true);
+				constraint->setStiffness(5, joint.param.spring_rotation_coefficient[2]);
+			}
+		}
 	}
 
 	void ProcessAnimation()
@@ -344,6 +545,32 @@ public:
 					UpdateGlobalTransform(linkBone);
 				}
 			}
+		}
+	}
+
+	void ProcessPhysics(float dt)
+	{
+		for (RigidBody& body : bodies)
+		{
+			if (body.type != 0)continue;
+			glm::mat4 mat = body.bone->GlobalTransform * body.fromBone;
+			btTransform transform;
+			transform.setFromOpenGLMatrix((float*)&mat);
+			body.btBody->getMotionState()->setWorldTransform(transform);
+		}
+
+		world->stepSimulation(dt);
+
+		for (RigidBody& body : bodies)
+		{
+			if (body.type == 0)continue;
+			if (!body.bone)continue;
+
+			btTransform transform;
+			body.btBody->getMotionState()->getWorldTransform(transform);
+			glm::mat4 mat;
+			transform.getOpenGLMatrix((float*)&mat);
+			body.bone->GlobalTransform = mat * body.fromBody;
 		}
 	}
 
