@@ -1,11 +1,27 @@
 #version 460
 
 layout (location = 0) in vec3 position;
+layout (location = 1) in vec2 uv;
+layout (location = 2) in ivec4 boneIDs;
+layout (location = 3) in vec4 weights;
+
+out vec2 fuv;
 
 uniform mat4 view;
 uniform mat4 projection;
 
+uniform BoneMatrix
+{
+	mat4 FinalTransform[500];
+};
+
 void main()
 {
-	gl_Position = projection * view * vec4(position, 1.0);
+	mat4 skinned = FinalTransform[boneIDs[0]] * weights[0] +
+				   FinalTransform[boneIDs[1]] * weights[1] +
+				   FinalTransform[boneIDs[2]] * weights[2] +
+				   FinalTransform[boneIDs[3]] * weights[3] ;
+
+	gl_Position = projection * view * skinned * vec4(position, 1.0);
+	fuv = uv;
 }

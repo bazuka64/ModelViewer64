@@ -1,6 +1,14 @@
+/*
+	todo
+	mmd skinning sdef
+	vmd bezier interpolation
+*/
+
 #include "config.h"
 #include "Shader.h"
 #include "Camera.h"
+#include "Model.h"
+#include "Animation.h"
 
 Camera camera;
 glm::vec2 cursorPos;
@@ -55,20 +63,20 @@ int main()
 	ImGui_ImplOpenGL3_Init();
 
 	glClearColor(.1, .1, .1, 1.);
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_CULL_FACE);
 
 	Shader shader("shader/shader.vert", "shader/shader.frag");
 
-	float vertices[]{
-		0,1,0,
-		-1,-1,0,
-		1,-1,0,
-	};
-	GLuint vbo;
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+	//Model model("G:/res/meirin/meirin.pmx", shader);
+	Model model("../../res/meirin/meirin.pmx", shader);
+
+	//Animation anim("G:/res/VMD/極楽浄土/極楽上半身2ボーンが長い用.vmd");
+	Animation anim("../..//res/gokuraku.vmd");
+
+	model.anim = &anim;
 
 	float prevTime = glfwGetTime();
 	while (!glfwWindowShouldClose(window))
@@ -81,12 +89,11 @@ int main()
 		camera.UpdateMatrix();
 		shader.SetCameraMatrix(camera);
 
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		float start = glfwGetTime();
 
-		glUseProgram(shader.program);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		model.Draw(dt);
 
 		float end = glfwGetTime();
 
@@ -94,7 +101,7 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		
+				
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

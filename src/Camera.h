@@ -4,8 +4,8 @@
 class Camera
 {
 public:
-	glm::vec3 position{ 2,2,2 };
-	glm::vec3 target{ 0,0,0 };
+	glm::vec3 position{ 0,10,30 };
+	glm::vec3 target{ 0,10,0 };
 	glm::vec3 worldUp{ 0,1,0 };
 
 	glm::mat4 view;
