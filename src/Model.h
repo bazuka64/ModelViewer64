@@ -39,6 +39,7 @@ public:
 		int id;
 		std::string name;
 		Bone* parent;
+		std::vector<Bone*> children;
 		glm::vec3 position;
 		glm::mat4 InverseBindPose;
 		glm::mat4 ParentOffset;
@@ -48,6 +49,7 @@ public:
 		int lastFrame;
 	};
 	std::vector<Bone> bones;
+	std::vector<Bone*> ikBones;
 	std::vector<glm::mat4> FinalTransform;
 	GLuint ubo;
 
@@ -141,7 +143,6 @@ public:
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(int), indices.data(), GL_STATIC_DRAW);
 
 		glBindVertexArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 		int offset = 0;
 		meshes.resize(model.material_count);
@@ -195,7 +196,14 @@ public:
 			{
 				bone.ParentOffset = glm::translate(glm::mat4(1), bone.position);
 			}
+
+			if (pmxBone.ik_target_bone_index != 0)
+				ikBones.push_back(&bone);
 		}
+
+		for (Bone& bone : bones)
+			if (bone.parent)
+				bone.parent->children.push_back(&bone);
 	}
 
 	void Draw(float dt)
@@ -245,6 +253,8 @@ public:
 				bone.GlobalTransform = bone.LocalTransform;
 		}
 
+		ProcessIK();
+
 		for (Bone& bone : bones)
 			FinalTransform[bone.id] = bone.GlobalTransform * bone.InverseBindPose;
 
@@ -267,5 +277,82 @@ public:
 
 		glBindVertexArray(0);
 		glUseProgram(0);
+	}
+
+	void ProcessIK()
+	{
+		for (Bone* ikBone : ikBones)
+		{
+			PmxBone* pmxBone = ikBone->pmxBone;
+			Bone* targetBone = &bones[pmxBone->ik_target_bone_index];
+			glm::vec3 ikPos = ikBone->GlobalTransform[3];
+
+			for (int i = 0; i < pmxBone->ik_loop; i++)
+			{
+				glm::vec3 targetPos = targetBone->GlobalTransform[3];
+				float distance = glm::distance(ikPos, targetPos);
+				if (distance < 0.1)break;
+
+				for (int j = 0; j < pmxBone->ik_link_count; j++)
+				{
+					PmxIkLink& link = pmxBone->ik_links[j];
+					Bone* linkBone = &bones[link.link_target];
+
+					glm::vec3 linkPos = linkBone->GlobalTransform[3];
+					glm::vec3 targetPos = targetBone->GlobalTransform[3];
+
+					glm::mat4 invLink = glm::inverse(linkBone->GlobalTransform);
+
+					glm::vec3 localIkPos = invLink * glm::vec4(ikPos, 1);
+					glm::vec3 localTargetPos = invLink * glm::vec4(targetPos, 1);
+
+					localIkPos = glm::normalize(localIkPos);
+					localTargetPos = glm::normalize(localTargetPos);
+
+					float dot = glm::dot(localIkPos, localTargetPos);
+					dot = glm::clamp<float>(dot, -1, 1);
+					float theta = std::acos(dot);
+					if (theta == 0)continue;
+
+					theta = glm::clamp<float>(theta, 0, pmxBone->ik_loop_angle_limit);
+
+					glm::vec3 axis = glm::cross(localTargetPos, localIkPos);
+					if (axis == glm::vec3(0))continue;
+
+					glm::quat ikRot = glm::rotate(glm::quat(1, 0, 0, 0), theta, axis);
+
+					glm::quat animRot = glm::quat_cast(linkBone->LocalTransform);
+
+					glm::quat totalRot = animRot * ikRot;
+
+					if (link.angle_lock)
+					{
+						glm::vec3 euler = glm::eulerAngles(totalRot);
+
+						euler.x = glm::clamp<float>(euler.x, -link.min_radian[0], -link.max_radian[0]);
+						euler.y = glm::clamp<float>(euler.y, -link.min_radian[1], -link.max_radian[1]);
+						euler.z = glm::clamp<float>(euler.z, link.max_radian[2], link.min_radian[2]);
+
+						totalRot = glm::quat(euler);
+					}
+
+					glm::mat4 newLocal = glm::mat4_cast(totalRot);
+
+					newLocal[3] = linkBone->LocalTransform[3];
+
+					linkBone->LocalTransform = newLocal;
+
+					UpdateGlobalTransform(linkBone);
+				}
+			}
+		}
+	}
+
+	void UpdateGlobalTransform(Bone* bone)
+	{
+		bone->GlobalTransform = bone->parent->GlobalTransform * bone->LocalTransform;
+
+		for (Bone* child : bone->children)
+			UpdateGlobalTransform(child);
 	}
 };
