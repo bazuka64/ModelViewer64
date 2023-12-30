@@ -341,8 +341,8 @@ private:
 			}
 
 			world->addRigidBody(body.btBody, 1 << pmxBody.group, pmxBody.mask);
-
-			if (pmxBody.target_bone != 1)
+			
+			if (pmxBody.target_bone != -1)
 			{
 				body.bone = &bones[pmxBody.target_bone];
 				body.fromBone = glm::translate(glm::mat4(1), startPos - body.bone->position) * startRot;
@@ -553,6 +553,8 @@ private:
 		for (RigidBody& body : bodies)
 		{
 			if (body.type != 0)continue;
+			if (!body.bone)continue;
+
 			glm::mat4 mat = body.bone->GlobalTransform * body.fromBone;
 			btTransform transform;
 			transform.setFromOpenGLMatrix((float*)&mat);
