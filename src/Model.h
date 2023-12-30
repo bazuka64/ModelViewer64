@@ -210,6 +210,38 @@ public:
 	{
 		animFrame += dt * 30;
 
+		ProcessAnimation();
+
+		UpdateGlobalTransform(&bones[0]);
+
+		ProcessIK();
+
+		for (Bone& bone : bones)
+			FinalTransform[bone.id] = bone.GlobalTransform * bone.InverseBindPose;
+
+		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+		glBufferData(GL_UNIFORM_BUFFER, FinalTransform.size() * sizeof(glm::mat4), FinalTransform.data(), GL_STREAM_DRAW);
+		glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
+
+		glUseProgram(shader.program);
+		glBindVertexArray(vao);
+
+		for (Mesh& mesh : meshes)
+		{
+			if (mesh.texture_index != -1)
+				glBindTexture(GL_TEXTURE_2D, textures[mesh.texture_index].id);
+
+			glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, (void*)(mesh.index_offset * sizeof(int)));
+
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
+
+		glBindVertexArray(0);
+		glUseProgram(0);
+	}
+
+	void ProcessAnimation()
+	{
 		for (Bone& bone : bones)
 		{
 			bone.LocalTransform = bone.ParentOffset;
@@ -246,37 +278,7 @@ public:
 				glm::mat4 rotMat = glm::mat4_cast(rot);
 				bone.LocalTransform = bone.ParentOffset * transMat * rotMat;
 			}
-
-			if (bone.parent)
-				bone.GlobalTransform = bone.parent->GlobalTransform * bone.LocalTransform;
-			else
-				bone.GlobalTransform = bone.LocalTransform;
 		}
-
-		ProcessIK();
-
-		for (Bone& bone : bones)
-			FinalTransform[bone.id] = bone.GlobalTransform * bone.InverseBindPose;
-
-		glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-		glBufferData(GL_UNIFORM_BUFFER, FinalTransform.size() * sizeof(glm::mat4), FinalTransform.data(), GL_STREAM_DRAW);
-		glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
-
-		glUseProgram(shader.program);
-		glBindVertexArray(vao);
-
-		for (Mesh& mesh : meshes)
-		{
-			if (mesh.texture_index != -1)
-				glBindTexture(GL_TEXTURE_2D, textures[mesh.texture_index].id);
-
-			glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, (void*)(mesh.index_offset * sizeof(int)));
-
-			glBindTexture(GL_TEXTURE_2D, 0);
-		}
-
-		glBindVertexArray(0);
-		glUseProgram(0);
 	}
 
 	void ProcessIK()
@@ -350,7 +352,10 @@ public:
 
 	void UpdateGlobalTransform(Bone* bone)
 	{
-		bone->GlobalTransform = bone->parent->GlobalTransform * bone->LocalTransform;
+		if (bone->parent)
+			bone->GlobalTransform = bone->parent->GlobalTransform * bone->LocalTransform;
+		else
+			bone->GlobalTransform = bone->LocalTransform;
 
 		for (Bone* child : bone->children)
 			UpdateGlobalTransform(child);
