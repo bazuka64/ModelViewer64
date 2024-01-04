@@ -15,6 +15,7 @@ public:
 	PmxModel model;
 	GLuint vao;
 	oguna::EncodingConverter conv;
+	bool Debug = false;
 
 	struct Vertex
 	{
@@ -36,14 +37,16 @@ public:
 	struct Bone
 	{
 		PmxBone* pmxBone;
-		int id;
 		std::string name;
+		int id;
 		Bone* parent;
 		std::vector<Bone*> children;
-		glm::vec3 position;
+		glm::vec3 position; // initial pos
+		glm::vec3 target_position;
 		glm::mat4 InverseBindPose;
 		glm::mat4 ParentOffset;
 
+		// dynamic change
 		glm::mat4 GlobalTransform;
 		glm::mat4 LocalTransform;
 		int lastFrame;
@@ -60,7 +63,6 @@ public:
 	{
 		PmxRigidBody* pmxBody;
 		btRigidBody* btBody;
-		int type; // 0:kinematic 1:dynamic 2:dynamic
 		Bone* bone;
 		glm::mat4 fromBone;
 		glm::mat4 fromBody;
@@ -74,21 +76,18 @@ public:
 		if (file.fail())throw;
 		model.Read(&file);
 
-		BuildBuffers();
+		BuildBuffers(path);
 
-		InitMaterial(path);
+		BoneInit();
 
-		InitBone();
-
-		InitWorld();
-		InitRigidBody();
-		InitJoint();
+		PhysicsInit();
 	}
 
 	void Draw(float dt)
 	{
 		animFrame += dt * 30;
 
+		// Update LocalTransform
 		ProcessAnimation();
 
 		UpdateGlobalTransform(&bones[0]);
@@ -119,11 +118,70 @@ public:
 
 		glBindVertexArray(0);
 		glUseProgram(0);
+
+		if(Debug)
+			DrawDebug();
 	}
 
 private:
 
-	void BuildBuffers()
+	void DrawDebug()
+	{
+		extern Camera camera;
+
+		glDisable(GL_DEPTH_TEST);
+		glLineWidth(5);
+
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixf((float*)&camera.view);
+		glMatrixMode(GL_PROJECTION);
+		glLoadMatrixf((float*)&camera.projection);
+
+		glColor3f(0, 1, 0);
+		for (Bone& bone : bones)
+		{
+			if (bone.target_position == glm::vec3(0))continue;
+
+			glMatrixMode(GL_MODELVIEW);
+			glPushMatrix();
+			glMultMatrixf((float*)&FinalTransform[bone.id]);
+
+			glBegin(GL_LINES);
+			glVertex3fv((float*) & bone.position);
+			glVertex3fv((float*) & bone.target_position);
+			glEnd();
+
+			glPopMatrix();
+		}
+
+		glColor3f(1, 0, 0);
+		for (RigidBody& body : bodies)
+		{
+			// draw only capsule shape
+			if (body.pmxBody->shape != 2)continue;
+
+			btTransform transform;
+			body.btBody->getMotionState()->getWorldTransform(transform);
+			glm::mat4 mat;
+			transform.getOpenGLMatrix((float*)&mat);
+
+			glMatrixMode(GL_MODELVIEW);
+			glPushMatrix();
+			glMultMatrixf((float*)&mat);
+
+			float capsule_height = body.pmxBody->size[1];
+			glBegin(GL_LINES);
+			glVertex3f(0, capsule_height/2, 0);
+			glVertex3f(0, -capsule_height/2, 0);
+			glEnd();
+
+			glPopMatrix();
+		}
+
+		glEnable(GL_DEPTH_TEST);
+	}
+
+	void BuildBuffers(std::string path)
 	{
 		std::vector<Vertex> vertices(model.vertex_count);
 		for (int i = 0; i < model.vertex_count; i++)
@@ -206,10 +264,7 @@ private:
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(int), indices.data(), GL_STATIC_DRAW);
 
 		glBindVertexArray(0);
-	}
 
-	void InitMaterial(std::string path)
-	{
 		int offset = 0;
 		meshes.resize(model.material_count);
 		for (int i = 0; i < model.material_count; i++)
@@ -234,7 +289,7 @@ private:
 		}
 	}
 
-	void InitBone()
+	void BoneInit()
 	{
 		glGenBuffers(1, &ubo);
 		FinalTransform.resize(model.bone_count);
@@ -270,20 +325,41 @@ private:
 			if (pmxBone.ik_target_bone_index != 0)
 				ikBones.push_back(&bone);
 		}
+
+		// set bone target pos for debug draw
+		for (Bone& bone : bones)
+		{
+			if (bone.pmxBone->bone_flag & 0x0001)
+			{
+				// 1:target_index
+				if (bone.pmxBone->target_index == -1)continue;
+
+				bone.target_position = bones[bone.pmxBone->target_index].position;
+			}
+			else
+			{
+				// 0:offset
+				glm::vec3 offset(
+					bone.pmxBone->offset[0],
+					bone.pmxBone->offset[1],
+					-bone.pmxBone->offset[2]
+				);
+				bone.target_position = bone.position + offset;
+			}
+		}
 	}
 
-	void InitWorld()
+	void PhysicsInit()
 	{
+		// world
 		auto configuration = new btDefaultCollisionConfiguration();
 		auto dispatcher = new btCollisionDispatcher(configuration);
 		auto overlappingPairCache = new btDbvtBroadphase();
 		auto solver = new btSequentialImpulseConstraintSolver();
 		world = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, configuration);
 		world->setGravity(btVector3(0, -10 * 10, 0));
-	}
 
-	void InitRigidBody()
-	{
+		// rigid body
 		bodies.resize(model.rigid_body_count);
 		for (int i = 0; i < model.rigid_body_count; i++)
 		{
@@ -291,7 +367,6 @@ private:
 			RigidBody& body = bodies[i];
 
 			body.pmxBody = &pmxBody;
-			body.type = pmxBody.physics_calc_type;
 
 			btCollisionShape* shape = NULL;
 			if (pmxBody.shape == 0)
@@ -305,26 +380,26 @@ private:
 
 			float mass = 0;
 			btVector3 localInertia(0, 0, 0);
-			if (body.type != 0)
+			if (pmxBody.physics_calc_type != 0)
 			{
 				mass = pmxBody.mass;
 				shape->calculateLocalInertia(mass, localInertia);
 			}
 
-			glm::vec3 startPos(
-				pmxBody.position[0],
-				pmxBody.position[1],
-				-pmxBody.position[2]
-			);
-			glm::mat4 startRot = glm::eulerAngleYXZ(
+			glm::mat4 bodyTransform = glm::eulerAngleYXZ(
 				-pmxBody.orientation[1],
 				-pmxBody.orientation[0],
 				pmxBody.orientation[2]
 			);
+			bodyTransform[3] = glm::vec4(
+				pmxBody.position[0],
+				pmxBody.position[1],
+				-pmxBody.position[2],
+				1.0
+			);
 
 			btTransform transform;
-			transform.setFromOpenGLMatrix((float*)&startRot);
-			transform.setOrigin(btVector3(startPos.x, startPos.y, startPos.z));
+			transform.setFromOpenGLMatrix((float*)&bodyTransform);
 			auto motion = new btDefaultMotionState(transform);
 
 			btRigidBody::btRigidBodyConstructionInfo info(mass, motion, shape, localInertia);
@@ -334,25 +409,25 @@ private:
 			info.m_angularDamping = pmxBody.rotation_attenuation;
 			body.btBody = new btRigidBody(info);
 
-			if (body.type == 0)
+			if (pmxBody.physics_calc_type == 0)
 			{
 				body.btBody->setCollisionFlags(body.btBody->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
 				body.btBody->setActivationState(DISABLE_DEACTIVATION);
 			}
 
 			world->addRigidBody(body.btBody, 1 << pmxBody.group, pmxBody.mask);
-			
+
+			// bone and rigid body positions are a little bit different
 			if (pmxBody.target_bone != -1)
 			{
 				body.bone = &bones[pmxBody.target_bone];
-				body.fromBone = glm::translate(glm::mat4(1), startPos - body.bone->position) * startRot;
+
+				body.fromBone = body.bone->InverseBindPose * bodyTransform;
 				body.fromBody = glm::inverse(body.fromBone);
 			}
 		}
-	}
 
-	void InitJoint()
-	{
+		// joint
 		for (int i = 0; i < model.joint_count; i++)
 		{
 			PmxJoint& joint = model.joints[i];
@@ -374,11 +449,9 @@ private:
 			);
 			transform.setRotation(rot);
 
-			btTransform frameInA;
-			bodyA.btBody->getMotionState()->getWorldTransform(frameInA);
+			btTransform frameInA = bodyA.btBody->getWorldTransform();
 			frameInA = frameInA.inverse() * transform;
-			btTransform frameInB;
-			bodyB.btBody->getMotionState()->getWorldTransform(frameInB);
+			btTransform frameInB = bodyB.btBody->getWorldTransform();
 			frameInB = frameInB.inverse() * transform;
 
 			auto constraint = new btGeneric6DofSpringConstraint(*bodyA.btBody, *bodyB.btBody, frameInA, frameInB, true);
@@ -552,7 +625,8 @@ private:
 	{
 		for (RigidBody& body : bodies)
 		{
-			if (body.type != 0)continue;
+			// do kinematic
+			if (body.pmxBody->physics_calc_type != 0)continue;
 			if (!body.bone)continue;
 
 			glm::mat4 mat = body.bone->GlobalTransform * body.fromBone;
@@ -565,7 +639,8 @@ private:
 
 		for (RigidBody& body : bodies)
 		{
-			if (body.type == 0)continue;
+			// do dynamic
+			if (body.pmxBody->physics_calc_type == 0)continue;
 			if (!body.bone)continue;
 
 			btTransform transform;

@@ -14,13 +14,6 @@
 Camera camera;
 glm::vec2 cursorPos;
 
-void WindowSizeCallback(GLFWwindow* window, int width, int height)
-{
-	glViewport(0, 0, width, height);
-	if (width != 0 && height != 0)
-		camera.aspect = width / (float)height;
-}
-
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	glm::vec2 pos(xpos, ypos);
@@ -45,6 +38,19 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 	camera.UpdateScroll(yoffset);
 }
 
+void WindowSizeCallback(GLFWwindow* window, int width, int height)
+{
+	glViewport(0, 0, width, height);
+	if (width != 0 && height != 0)
+		camera.aspect = width / (float)height;
+}
+
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
+}
+
 int main()
 {
 	glfwInit();
@@ -54,10 +60,13 @@ int main()
 	gladLoadGL();
 	glfwSwapInterval(1);
 
-	glfwSetWindowSizeCallback(window, WindowSizeCallback);
 	glfwSetCursorPosCallback(window, CursorPosCallback);
 	glfwSetMouseButtonCallback(window, MouseButtonCallback);
 	glfwSetScrollCallback(window, ScrollCallback);
+	glfwSetWindowSizeCallback(window, WindowSizeCallback);
+	glfwSetKeyCallback(window, KeyCallback);
+
+	glfwMaximizeWindow(window);
 
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -100,7 +109,7 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-				
+		
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
