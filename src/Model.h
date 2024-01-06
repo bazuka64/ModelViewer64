@@ -70,6 +70,18 @@ public:
 	std::vector<RigidBody> bodies;
 	btDiscreteDynamicsWorld* world;
 
+	struct Morph
+	{
+		PmxMorph* pmxMorph;
+		std::string name;
+		int lastFrame;
+	};
+	std::vector<Morph> morphs;
+	std::vector<glm::vec3> morphPos;
+	std::vector<glm::vec2> morphUV;
+	GLuint morphPosBuf;
+	GLuint morphUVBuf;
+
 	Model(std::string path, Shader& shader) :shader(shader)
 	{
 		std::ifstream file(path, std::ios::binary);
@@ -81,11 +93,38 @@ public:
 		BoneInit();
 
 		PhysicsInit();
+
+		morphs.resize(model.morph_count);
+		for (int i = 0; i < model.morph_count; i++)
+		{
+			PmxMorph& pmxMorph = model.morphs[i];
+			morphs[i].pmxMorph = &pmxMorph;
+			conv.Utf16ToCp932(pmxMorph.morph_name.c_str(), pmxMorph.morph_name.length(), &morphs[i].name);
+		}
+
+		morphPos.resize(model.vertex_count);
+		morphUV.resize(model.vertex_count);
+
+		glBindVertexArray(vao);
+
+		glGenBuffers(1, &morphPosBuf);
+		glBindBuffer(GL_ARRAY_BUFFER, morphPosBuf);
+		glEnableVertexAttribArray(4);
+		glVertexAttribPointer(4, 3, GL_FLOAT, false, 0, 0);
+
+		glGenBuffers(1, &morphUVBuf);
+		glBindBuffer(GL_ARRAY_BUFFER, morphUVBuf);
+		glEnableVertexAttribArray(5);
+		glVertexAttribPointer(5, 2, GL_FLOAT, false, 0, 0);
+
+		glBindVertexArray(0);
 	}
 
 	void Draw(float dt)
 	{
 		animFrame += dt * 30;
+
+		ProcessMorph();
 
 		// Update LocalTransform
 		ProcessAnimation();
@@ -124,6 +163,7 @@ public:
 	}
 
 private:
+
 
 	void DrawDebug()
 	{
@@ -508,6 +548,94 @@ private:
 				constraint->enableSpring(5, true);
 				constraint->setStiffness(5, joint.param.spring_rotation_coefficient[2]);
 			}
+		}
+	}
+
+	void ProcessMorph()
+	{
+		for (int i = 0; i < model.vertex_count; i++)
+		{
+			morphPos[i] = glm::vec3(0);
+			morphUV[i] = glm::vec2(0);
+		}
+		for (Morph& morph : morphs)
+		{
+			PmxMorph& pmxMorph = *morph.pmxMorph;
+			if (anim->faceMap.find(morph.name) != anim->faceMap.end())
+			{
+				std::vector<VmdFaceFrame*>& face_frames = anim->faceMap[morph.name];
+				int j;
+				for (j = morph.lastFrame; j < face_frames.size(); j++)
+				{
+					if (face_frames[j]->frame > animFrame)
+						break;
+				}
+				morph.lastFrame = j - 1;
+
+				float weight;
+				if (j == face_frames.size())
+				{
+					VmdFaceFrame* ff = face_frames[j - 1];
+					weight = ff->weight;
+				}
+				else
+				{
+					VmdFaceFrame* ff0 = face_frames[j - 1];
+					VmdFaceFrame* ff1 = face_frames[j];
+					float factor = (animFrame - ff0->frame) / (ff1->frame - ff0->frame);
+					weight = ff0->weight + (ff1->weight - ff0->weight) * factor;
+				}
+
+				SubProcessMorph(pmxMorph, weight);
+			}
+		}
+		glBindBuffer(GL_ARRAY_BUFFER, morphPosBuf);
+		glBufferData(GL_ARRAY_BUFFER, morphPos.size() * sizeof(glm::vec3), morphPos.data(), GL_STREAM_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, morphUVBuf);
+		glBufferData(GL_ARRAY_BUFFER, morphUV.size() * sizeof(glm::vec2), morphUV.data(), GL_STREAM_DRAW);
+	}
+
+	void SubProcessMorph(PmxMorph& pmxMorph, float weight)
+	{
+		switch (pmxMorph.morph_type)
+		{
+		case MorphType::Vertex:
+		{
+			for (int i = 0; i < pmxMorph.offset_count; i++)
+			{
+				PmxMorphVertexOffset& vo = pmxMorph.vertex_offsets[i];
+				morphPos[vo.vertex_index] += glm::vec3(
+					vo.position_offset[0],
+					vo.position_offset[1],
+					-vo.position_offset[2]
+				) * weight;
+			}
+		}
+		break;
+		case MorphType::UV:
+		{
+			for (int i = 0; i < pmxMorph.offset_count; i++)
+			{
+				PmxMorphUVOffset& uo = pmxMorph.uv_offsets[i];
+				morphUV[uo.vertex_index] += glm::vec2(
+					uo.uv_offset[0],
+					uo.uv_offset[1]
+				) * weight;
+			}
+		}
+		break;
+		case MorphType::Group:
+		{
+			for (int i = 0; i < pmxMorph.offset_count; i++)
+			{
+				PmxMorphGroupOffset& go = pmxMorph.group_offsets[i];
+				PmxMorph& elementMorph = model.morphs[go.morph_index];
+				SubProcessMorph(elementMorph, weight * go.morph_weight);
+			}
+		}
+		break;
+		default:
+			break;
 		}
 	}
 

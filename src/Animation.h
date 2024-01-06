@@ -14,10 +14,12 @@ public:
 		glm::quat rotation;
 	};
 	std::map<std::string, std::vector<BoneFrame>> boneMap;
+	std::map<std::string, std::vector<VmdFaceFrame*>> faceMap;
+	std::unique_ptr<VmdMotion> motion;
 
 	Animation(const char* path)
 	{
-		std::unique_ptr<VmdMotion> motion = VmdMotion::LoadFromFile(path);
+		motion = VmdMotion::LoadFromFile(path);
 		if (!motion)throw;
 
 		for (VmdBoneFrame& bone_frame : motion->bone_frames)
@@ -51,6 +53,27 @@ public:
 				[](BoneFrame& a, BoneFrame& b)
 				{
 					return a.frame < b.frame;
+				}
+			);
+		}
+
+		for (VmdFaceFrame& face_frame : motion->face_frames)
+		{
+			if (faceMap.find(face_frame.face_name) == faceMap.end())
+			{
+				faceMap[face_frame.face_name] = std::vector<VmdFaceFrame*>();
+			}
+
+			faceMap[face_frame.face_name].push_back(&face_frame);
+		}
+
+		for (auto& pair : faceMap)
+		{
+			auto& face_frames = pair.second;
+			std::sort(face_frames.begin(), face_frames.end(),
+				[](VmdFaceFrame* a, VmdFaceFrame* b)
+				{
+					return a->frame < b->frame;
 				}
 			);
 		}

@@ -2,7 +2,7 @@
 	todo
 	mmd skinning sdef
 	vmd bezier interpolation
-	mmd physics ƒ{[ƒ“ˆÊ’u‡‚í‚¹
+	mmd physics rigidbody type 2
 */
 
 #include "config.h"
