@@ -145,10 +145,12 @@
     <ClInclude Include="lib\MMDFormats\Vmd.h" />
     <ClInclude Include="src\Animation.h" />
     <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\Grid.h" />
     <ClInclude Include="src\Model.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\config.h" />
     <ClInclude Include="src\Texture.h" />
+    <ClInclude Include="src\Transform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

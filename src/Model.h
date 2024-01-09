@@ -5,6 +5,7 @@
 #include "Shader.h"
 #include "Texture.h"
 #include "Animation.h"
+#include "Transform.h"
 
 using namespace pmx;
 
@@ -15,7 +16,6 @@ public:
 	PmxModel model;
 	GLuint vao;
 	oguna::EncodingConverter conv;
-	bool Debug = false;
 
 	struct Vertex
 	{
@@ -80,8 +80,10 @@ public:
 	std::vector<glm::vec3> morphPos;
 	GLuint morphPosBuf;
 
+	Transform transform;
+
 	Model(std::string path, Shader* shader);
-	void Draw(float dt);
+	void Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool Debug);
 
 private:
 	void BuildBuffers();
@@ -92,7 +94,7 @@ private:
 	void JointInit();
 	void MorphInit();
 
-	void ProcessAnimation();
+	void ProcessAnimation(bool EnableAnimation);
 	void ProcessIK();
 	void ProcessPhysics(float dt);
 	void ProcessMorph();

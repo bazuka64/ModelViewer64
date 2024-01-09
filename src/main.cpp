@@ -13,9 +13,17 @@
 #include "Camera.h"
 #include "Model.h"
 #include "Animation.h"
+#include "Grid.h"
 
 Camera* camera;
 glm::vec2 cursorPos;
+std::vector<Model*> models;
+Shader* shader;
+Grid* grid;
+Animation* anim;
+bool EnableAnimation = true;
+bool EnablePhysics = true;
+bool Debug = false;
 
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -54,20 +62,71 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		glfwSetWindowShouldClose(window, true);
 }
 
+void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
+{
+	oguna::EncodingConverter conv;
+
+	for (int i = 0; i < path_count; i++)
+	{
+		std::string path;
+		conv.Utf8ToCp932(paths[i], strlen(paths[i]), &path);
+
+		int dotPos = path.find_last_of(".");
+		std::string ext = path.substr(dotPos + 1);
+
+		if (stricmp(ext.c_str(), "pmx") == 0)
+		{
+			Model* model = new Model(path, shader);
+			grid->AddModel(model);
+			if (anim)
+			{
+				model->anim = anim;
+				EnableAnimation = true;
+			}
+		}
+		else if (stricmp(ext.c_str(), "vmd") == 0)
+		{
+			anim = new Animation(path.c_str());
+			for (Model* model : models)
+			{
+				model->anim = anim;
+				model->animFrame = 0;
+				for (Model::Bone& bone : model->bones)
+					bone.lastFrame = 0;
+				for (Model::Morph& morph : model->morphs)
+					morph.lastFrame = 0;
+			}
+			EnableAnimation = true;
+		}
+	}
+}
+
 int main()
 {
+	int width = 1920;
+	int height = 1080;
+
 	glfwInit();
 	glfwWindowHint(GLFW_SAMPLES, 4);
-	GLFWwindow* window = glfwCreateWindow(1280, 720, "", NULL, NULL);
+	glfwWindowHint(GLFW_VISIBLE, false);
+	GLFWwindow* window = glfwCreateWindow(width, height, "", NULL, NULL);
 	glfwMakeContextCurrent(window);
 	gladLoadGL();
 	glfwSwapInterval(1);
+
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+	int xpos = (mode->width - width) / 2;
+	int ypos = (mode->height - height) / 2;
+	glfwSetWindowPos(window, xpos, ypos);
+	glfwShowWindow(window);
 
 	glfwSetCursorPosCallback(window, CursorPosCallback);
 	glfwSetMouseButtonCallback(window, MouseButtonCallback);
 	glfwSetScrollCallback(window, ScrollCallback);
 	glfwSetWindowSizeCallback(window, WindowSizeCallback);
 	glfwSetKeyCallback(window, KeyCallback);
+	glfwSetDropCallback(window, DropCallback);
 
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -79,17 +138,18 @@ int main()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_CULL_FACE);
 
+	grid = new Grid();
+
 	camera = new Camera();
 
-	glfwMaximizeWindow(window);
+	shader = new Shader("shader/shader.vert", "shader/shader.frag");
 
-	Shader* shader = new Shader("shader/shader.vert", "shader/shader.frag");
-
-	Model* model = new Model("../../res/meirin/meirin.pmx", shader);
-
-	Animation* anim = new Animation("../../res/gokuraku.vmd");
-
-	model->anim = anim;
+	const char* paths[]{
+		"../../res/meirin/meirin.pmx",
+		"../../res/mima/mima.pmx",
+		"../../res/gokuraku.vmd",
+	};
+	DropCallback(window, std::size(paths), paths);
 
 	float prevTime = glfwGetTime();
 	while (!glfwWindowShouldClose(window))
@@ -106,7 +166,10 @@ int main()
 
 		float start = glfwGetTime();
 
-		model->Draw(dt);
+		grid->Draw();
+
+		for (Model* model : models)
+			model->Draw(dt, EnableAnimation, EnablePhysics, Debug);
 
 		float end = glfwGetTime();
 
@@ -114,7 +177,9 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		
+		ImGui::Checkbox("Animation", &EnableAnimation);
+		ImGui::Checkbox("Physics", &EnablePhysics);
+		ImGui::Checkbox("Debug", &Debug);
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

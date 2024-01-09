@@ -19,18 +19,26 @@ Model::Model(std::string path, Shader* shader) :shader(shader)
 	MorphInit();
 }
 
-void Model::Draw(float dt)
+void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool Debug)
 {
-	animFrame += dt * 30;
+	if (EnableAnimation)
+		animFrame += dt * 30;
 
 	// Update LocalTransform
-	ProcessAnimation();
+	ProcessAnimation(EnableAnimation);
 
-	UpdateGlobalTransform(&bones[0]);
+	// ‘S‚Ä‚Ìe‚ª‚Q”Ô–Ú‚É‚ ‚é‚Æ‚«
+	Bone* root = &bones[0];
+	if (bones[0].children.size() == 0 && bones.size() > 1)
+		root = &bones[1];
 
-	ProcessIK();
+	UpdateGlobalTransform(root);
 
-	ProcessPhysics(dt);
+	if(EnableAnimation)
+		ProcessIK();
+
+	if(EnablePhysics)
+		ProcessPhysics(dt);
 
 	for (Bone& bone : bones)
 		FinalTransform[bone.id] = bone.GlobalTransform * bone.InverseBindPose;
@@ -39,10 +47,13 @@ void Model::Draw(float dt)
 	glBufferData(GL_UNIFORM_BUFFER, FinalTransform.size() * sizeof(glm::mat4), FinalTransform.data(), GL_STREAM_DRAW);
 	glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
 
-	ProcessMorph();
+	if(EnableAnimation)
+		ProcessMorph();
 
 	glUseProgram(shader->program);
 	glBindVertexArray(vao);
+
+	glUniformMatrix4fv(shader->UniformLocations["model"], 1, false, (float*)&transform.model);
 
 	for (Mesh& mesh : meshes)
 	{
@@ -68,10 +79,12 @@ void Model::DrawDebug()
 	glDisable(GL_DEPTH_TEST);
 	glLineWidth(5);
 
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf((float*)&camera->view);
 	glMatrixMode(GL_PROJECTION);
 	glLoadMatrixf((float*)&camera->projection);
+
+	glm::mat4 ModelView = camera->view * transform.model;
+	glMatrixMode(GL_MODELVIEW);
+	glLoadMatrixf((float*)&ModelView);
 
 	glColor3f(0, 1, 0);
 	for (Bone& bone : bones)
@@ -215,7 +228,7 @@ void Model::MaterialInit(std::string path)
 		meshes[i].texture_index = material.diffuse_texture_index;
 	}
 
-	int lastPos = path.find_last_of("/");
+	int lastPos = path.find_last_of("/\\");
 	std::string dir = path.substr(0, lastPos + 1);
 
 	textures.resize(model.texture_count);
@@ -374,6 +387,7 @@ void Model::JointInit()
 	{
 		PmxJoint& joint = model.joints[i];
 
+		if (joint.param.rigid_body1 == joint.param.rigid_body2)continue;
 		RigidBody& bodyA = bodies[joint.param.rigid_body1];
 		RigidBody& bodyB = bodies[joint.param.rigid_body2];
 
@@ -470,6 +484,7 @@ void Model::MorphInit()
 
 	glGenBuffers(1, &morphPosBuf);
 	glBindBuffer(GL_ARRAY_BUFFER, morphPosBuf);
+	glBufferData(GL_ARRAY_BUFFER, morphPos.size() * sizeof(glm::vec3), NULL, GL_STREAM_DRAW);
 	glEnableVertexAttribArray(4);
 	glVertexAttribPointer(4, 3, GL_FLOAT, false, 0, 0);
 
@@ -483,7 +498,7 @@ void Model::ProcessMorph()
 	for (Morph& morph : morphs)
 	{
 		PmxMorph& pmxMorph = *morph.pmxMorph;
-		if (anim->faceMap.find(morph.name) != anim->faceMap.end())
+		if (anim && anim->faceMap.find(morph.name) != anim->faceMap.end())
 		{
 			// search
 			std::vector<VmdFaceFrame*>& face_frames = anim->faceMap[morph.name];
@@ -494,11 +509,13 @@ void Model::ProcessMorph()
 					break;
 			}
 			morph.lastFrame = j - 1;
+			if (j == 0)morph.lastFrame = j;
 
 			// interpolate
 			float weight;
-			if (j == face_frames.size())
+			if (j == face_frames.size() || j == 0)
 			{
+				if (j == 0)j++;
 				VmdFaceFrame* ff = face_frames[j - 1];
 				weight = ff->weight;
 			}
@@ -549,12 +566,12 @@ void Model::SubProcessMorph(PmxMorph& pmxMorph, float weight)
 	}
 }
 
-void Model::ProcessAnimation()
+void Model::ProcessAnimation(bool EnableAnimation)
 {
 	for (Bone& bone : bones)
 	{
 		bone.LocalTransform = bone.ParentOffset;
-		if (anim->boneMap.find(bone.name) != anim->boneMap.end())
+		if (anim && EnableAnimation && anim->boneMap.find(bone.name) != anim->boneMap.end())
 		{
 			// search
 			std::vector<Animation::BoneFrame>& bone_frames = anim->boneMap[bone.name];
@@ -565,12 +582,14 @@ void Model::ProcessAnimation()
 					break;
 			}
 			bone.lastFrame = i - 1;
+			if (i == 0)bone.lastFrame = i;
 
 			// interpolate
 			glm::vec3 trans;
 			glm::quat rot;
-			if (i == bone_frames.size())
+			if (i == bone_frames.size() || i == 0)
 			{
+				if (i == 0)i++;
 				Animation::BoneFrame& bf = bone_frames[i - 1];
 				trans = bf.position;
 				rot = bf.rotation;

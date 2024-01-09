@@ -48,6 +48,7 @@ public:
 		glUseProgram(program);
 		glUniformMatrix4fv(UniformLocations["view"], 1, false, (float*)&camera->view);
 		glUniformMatrix4fv(UniformLocations["projection"], 1, false, (float*)&camera->projection);
+		glUseProgram(0);
 	}
 
 private:

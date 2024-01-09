@@ -8,12 +8,13 @@ layout (location = 4) in vec3 morphPos;
 
 out vec2 fuv;
 
+uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
 uniform BoneMatrix
 {
-	mat4 FinalTransform[500];
+	mat4 FinalTransform[600];
 };
 
 void main()
@@ -23,6 +24,6 @@ void main()
 				   FinalTransform[boneIDs[2]] * weights[2] +
 				   FinalTransform[boneIDs[3]] * weights[3] ;
 
-	gl_Position = projection * view * skinned * vec4(position + morphPos, 1.0);
+	gl_Position = projection * view * model * skinned * vec4(position + morphPos, 1.0);
 	fuv = uv;
 }
