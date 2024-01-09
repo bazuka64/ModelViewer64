@@ -22,6 +22,7 @@ public:
 		motion = VmdMotion::LoadFromFile(path);
 		if (!motion)throw;
 
+		// bone animation
 		for (VmdBoneFrame& bone_frame : motion->bone_frames)
 		{
 			if (boneMap.find(bone_frame.name) == boneMap.end())
@@ -57,6 +58,7 @@ public:
 			);
 		}
 
+		// face animation
 		for (VmdFaceFrame& face_frame : motion->face_frames)
 		{
 			if (faceMap.find(face_frame.face_name) == faceMap.end())

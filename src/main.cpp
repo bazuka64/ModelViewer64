@@ -2,16 +2,19 @@
 	todo
 	mmd skinning sdef
 	vmd bezier interpolation
-	mmd physics rigidbody type 2
+	mmd physics ボーン位置合わせ
+	mmd morph 頂点モーフ以外
+	mmd 付与親 眼球が動かない
 */
 
+#define STB_IMAGE_IMPLEMENTATION
 #include "config.h"
 #include "Shader.h"
 #include "Camera.h"
 #include "Model.h"
 #include "Animation.h"
 
-Camera camera;
+Camera* camera;
 glm::vec2 cursorPos;
 
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
@@ -20,7 +23,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 	if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
 	{
 		glm::vec2 deltaPos = pos - cursorPos;
-		camera.UpdateRotation(deltaPos);
+		camera->UpdateRotation(deltaPos);
 	}
 	cursorPos = pos;
 }
@@ -35,14 +38,14 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	camera.UpdateScroll(yoffset);
+	camera->UpdateScroll(yoffset);
 }
 
 void WindowSizeCallback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 	if (width != 0 && height != 0)
-		camera.aspect = width / (float)height;
+		camera->aspect = width / (float)height;
 }
 
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -66,8 +69,6 @@ int main()
 	glfwSetWindowSizeCallback(window, WindowSizeCallback);
 	glfwSetKeyCallback(window, KeyCallback);
 
-	glfwMaximizeWindow(window);
-
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init();
@@ -78,13 +79,17 @@ int main()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_CULL_FACE);
 
-	Shader shader("shader/shader.vert", "shader/shader.frag");
+	camera = new Camera();
 
-	Model model("../../res/meirin/meirin.pmx", shader);
+	glfwMaximizeWindow(window);
 
-	Animation anim("../../res/gokuraku.vmd");
+	Shader* shader = new Shader("shader/shader.vert", "shader/shader.frag");
 
-	model.anim = &anim;
+	Model* model = new Model("../../res/meirin/meirin.pmx", shader);
+
+	Animation* anim = new Animation("../../res/gokuraku.vmd");
+
+	model->anim = anim;
 
 	float prevTime = glfwGetTime();
 	while (!glfwWindowShouldClose(window))
@@ -93,15 +98,15 @@ int main()
 		float dt = time - prevTime;
 		prevTime = time;
 
-		camera.UpdatePosition(window, dt);
-		camera.UpdateMatrix();
-		shader.SetCameraMatrix(camera);
+		camera->UpdatePosition(window, dt);
+		camera->UpdateMatrix();
+		shader->SetCameraMatrix(camera);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		float start = glfwGetTime();
 
-		model.Draw(dt);
+		model->Draw(dt);
 
 		float end = glfwGetTime();
 

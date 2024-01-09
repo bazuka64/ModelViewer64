@@ -137,6 +137,7 @@
   <ItemGroup>
     <ClCompile Include="lib\MMDFormats\Pmx.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Model.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib\MMDFormats\EncodingHelper.h" />

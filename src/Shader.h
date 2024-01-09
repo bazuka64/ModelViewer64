@@ -43,11 +43,11 @@ public:
 		}
 	}
 
-	void SetCameraMatrix(Camera& camera)
+	void SetCameraMatrix(Camera* camera)
 	{
 		glUseProgram(program);
-		glUniformMatrix4fv(UniformLocations["view"], 1, false, (float*)&camera.view);
-		glUniformMatrix4fv(UniformLocations["projection"], 1, false, (float*)&camera.projection);
+		glUniformMatrix4fv(UniformLocations["view"], 1, false, (float*)&camera->view);
+		glUniformMatrix4fv(UniformLocations["projection"], 1, false, (float*)&camera->projection);
 	}
 
 private:
