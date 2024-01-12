@@ -2,8 +2,6 @@
 	todo
 	mmd skinning sdef
 	vmd bezier interpolation
-	mmd physics ボーン位置合わせ
-	mmd morph 頂点モーフ以外
 */
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -11,7 +9,7 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "MMDModel.h"
-#include "Animation.h"
+#include "MMDAnimation.h"
 #include "Grid.h"
 #include "StaticModel.h"
 #include "SkeletalModel.h"
@@ -188,8 +186,8 @@ int main()
 	camera = new Camera();
 
 	MMDShader = new Shader("shader/mmd.vert", "shader/mmd.frag");
-	StaticShader = new Shader("shader/static.vert", "shader/static.frag");
-	SkeletalShader = new Shader("shader/skeletal.vert", "shader/skeletal.frag");
+	StaticShader = new Shader("shader/static.vert", "shader/assimp.frag");
+	SkeletalShader = new Shader("shader/skeletal.vert", "shader/assimp.frag");
 
 	const char* paths[]{
 		"../../res/meirin/meirin.pmx",

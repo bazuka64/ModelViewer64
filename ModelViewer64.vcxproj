@@ -143,7 +143,7 @@
     <ClInclude Include="lib\MMDFormats\EncodingHelper.h" />
     <ClInclude Include="lib\MMDFormats\Pmx.h" />
     <ClInclude Include="lib\MMDFormats\Vmd.h" />
-    <ClInclude Include="src\Animation.h" />
+    <ClInclude Include="src\MMDAnimation.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\DebugDrawer.h" />
     <ClInclude Include="src\Grid.h" />

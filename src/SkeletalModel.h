@@ -44,7 +44,11 @@ public:
 		this->shader = shader;
 
 		scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_GenNormals);
-		if (!scene)throw;
+		if (!scene)
+		{
+			print(importer.GetErrorString());
+			throw;
+		}
 
 		//animation = scene->mAnimations[0];
 		animation = scene->mAnimations[scene->mNumAnimations-1];

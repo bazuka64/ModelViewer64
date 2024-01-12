@@ -4,7 +4,7 @@
 #include <MMDFormats/EncodingHelper.h>
 #include "Shader.h"
 #include "Texture.h"
-#include "Animation.h"
+#include "MMDAnimation.h"
 #include "Transform.h"
 #include "Model.h"
 
