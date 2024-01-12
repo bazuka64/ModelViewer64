@@ -14,6 +14,7 @@
 #include "Animation.h"
 #include "Grid.h"
 #include "StaticModel.h"
+#include "SkeletalModel.h"
 #include "Model.h"
 
 Camera* camera;
@@ -21,8 +22,9 @@ glm::vec2 cursorPos;
 std::vector<Model*> models;
 Shader* MMDShader;
 Shader* StaticShader;
+Shader* SkeletalShader;
 Grid* grid;
-MMDAnimation* anim;
+MMDAnimation* animation;
 
 bool EnableAnimation = true;
 bool EnablePhysics = true;
@@ -84,20 +86,20 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 		{
 			MMDModel* model = new MMDModel(path, MMDShader);
 			grid->AddModel(model);
-			if (anim)
+			if (animation)
 			{
-				model->anim = anim;
+				model->animation = animation;
 			}
 		}
 		else if (stricmp(ext.c_str(), "vmd") == 0)
 		{
-			anim = new MMDAnimation(path.c_str());
+			animation = new MMDAnimation(path.c_str());
 			for (Model* model : models)
 			{
 				if (typeid(*model) == typeid(MMDModel))
 				{
 					MMDModel* mmdModel = (MMDModel*)model;
-					mmdModel->anim = anim;
+					mmdModel->animation = animation;
 					mmdModel->Reset();
 				}
 			}
@@ -122,6 +124,23 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 		else if (stricmp(ext.c_str(), "obj") == 0)
 		{
 			StaticModel* model = new StaticModel(path, StaticShader);
+			grid->AddModel(model);
+		}
+		else if (stricmp(ext.c_str(), "dae") == 0 ||
+				 stricmp(ext.c_str(), "fbx") == 0)
+		{
+			Assimp::Importer importer;
+			const aiScene* scene = importer.ReadFile(path, 0);
+			if (!scene)
+			{
+				print(importer.GetErrorString());
+				throw;
+			}
+			Model* model = NULL;
+			if (scene->HasAnimations())
+				model = new SkeletalModel(path, SkeletalShader);
+			else
+				model = new StaticModel(path, StaticShader);
 			grid->AddModel(model);
 		}
 	}
@@ -170,6 +189,7 @@ int main()
 
 	MMDShader = new Shader("shader/mmd.vert", "shader/mmd.frag");
 	StaticShader = new Shader("shader/static.vert", "shader/static.frag");
+	SkeletalShader = new Shader("shader/skeletal.vert", "shader/skeletal.frag");
 
 	const char* paths[]{
 		"../../res/meirin/meirin.pmx",
@@ -177,6 +197,7 @@ int main()
 		"../../res/zettai_zetsumei.vmd",
 		"../../res/zettai_zetsumei.mp3",
 		"../../res/Mega Man X/model.obj",
+		"../../res/3DS - Pokedex 3D Pro - 157 Typhlosion/anim.dae",
 	};
 	DropCallback(window, std::size(paths), paths);
 
@@ -192,6 +213,7 @@ int main()
 
 		MMDShader->SetCameraMatrix(camera);
 		StaticShader->SetCameraMatrix(camera);
+		SkeletalShader->SetCameraMatrix(camera);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -205,6 +227,8 @@ int main()
 				((MMDModel*)model)->Draw(dt, EnableAnimation, EnablePhysics, DebugDraw);
 			else if (typeid(*model) == typeid(StaticModel))
 				((StaticModel*)model)->Draw();
+			else if (typeid(*model) == typeid(SkeletalModel))
+				((SkeletalModel*)model)->Draw(dt);
 		}
 
 		float end = glfwGetTime();

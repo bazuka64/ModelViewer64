@@ -1,6 +1,7 @@
 #pragma once
 #include "config.h"
 #include "Shader.h"
+#include "Model.h"
 
 class StaticModel : public Model
 {
@@ -29,7 +30,11 @@ public:
 		this->shader = shader;
 
 		scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_GenNormals);
-		if (!scene)throw;
+		if (!scene)
+		{
+			print(importer.GetErrorString());
+			throw;
+		}
 
 		meshes.resize(scene->mNumMeshes);
 		for (int i = 0; i < scene->mNumMeshes; i++)
@@ -115,13 +120,11 @@ public:
 		for (Mesh& mesh : meshes)
 		{
 			glBindVertexArray(mesh.vao);
-
 			glBindTexture(GL_TEXTURE_2D, textures[mesh.aiMesh->mMaterialIndex].id);
 
 			glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, 0);
 
 			glBindTexture(GL_TEXTURE_2D, 0);
-
 			glBindVertexArray(0);
 		}
 

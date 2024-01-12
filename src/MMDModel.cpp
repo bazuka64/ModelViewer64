@@ -29,7 +29,7 @@ MMDModel::MMDModel(std::string path, Shader* shader)
 void MMDModel::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool DebugDraw)
 {
 	// Update LocalTransform
-	if (EnableAnimation && anim)
+	if (EnableAnimation && animation)
 	{
 		animFrame += dt * 30;
 		ProcessAnimation();
@@ -497,10 +497,10 @@ void MMDModel::ProcessMorph()
 	for (Morph& morph : morphs)
 	{
 		PmxMorph& pmxMorph = *morph.pmxMorph;
-		if (anim && anim->faceMap.find(morph.name) != anim->faceMap.end())
+		if (animation && animation->faceMap.find(morph.name) != animation->faceMap.end())
 		{
 			// search
-			std::vector<VmdFaceFrame*>& face_frames = anim->faceMap[morph.name];
+			std::vector<VmdFaceFrame*>& face_frames = animation->faceMap[morph.name];
 			int j;
 			for (j = morph.lastFrame; j < face_frames.size(); j++)
 			{
@@ -569,10 +569,10 @@ void MMDModel::ProcessAnimation()
 {
 	for (Bone& bone : bones)
 	{
-		if (anim->boneMap.find(bone.name) != anim->boneMap.end())
+		if (animation->boneMap.find(bone.name) != animation->boneMap.end())
 		{
 			// search
-			std::vector<MMDAnimation::BoneFrame>& bone_frames = anim->boneMap[bone.name];
+			std::vector<MMDAnimation::BoneFrame>& bone_frames = animation->boneMap[bone.name];
 			int i;
 			for (i = bone.lastFrame; i < bone_frames.size(); i++)
 			{

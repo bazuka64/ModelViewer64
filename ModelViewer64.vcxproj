@@ -151,6 +151,7 @@
     <ClInclude Include="src\Model.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\SkeletalModel.h" />
     <ClInclude Include="src\StaticModel.h" />
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="src\Transform.h" />

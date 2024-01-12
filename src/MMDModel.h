@@ -57,7 +57,7 @@ public:
 	std::vector<glm::mat4> FinalTransform;
 	GLuint ubo;
 
-	MMDAnimation* anim;
+	MMDAnimation* animation;
 	float animFrame;
 
 	struct RigidBody
