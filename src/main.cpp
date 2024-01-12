@@ -148,7 +148,7 @@ int main()
 	const char* paths[]{
 		"../../res/meirin/meirin.pmx",
 		"../../res/mima/mima.pmx",
-		"../../res/gokuraku.vmd",
+		"../../res/zettai_zetsumei.vmd",
 	};
 	DropCallback(window, std::size(paths), paths);
 

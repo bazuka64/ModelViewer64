@@ -22,8 +22,7 @@ Model::Model(std::string path, Shader* shader) :shader(shader)
 
 void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool DebugDraw)
 {
-	if (EnableAnimation)
-		animFrame += dt * 30;
+	if (EnableAnimation) animFrame += dt * 30;
 
 	// Update LocalTransform
 	ProcessAnimation(EnableAnimation);
@@ -37,11 +36,9 @@ void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool DebugD
 
 	UpdateGlobalTransform(root);
 
-	if(EnableAnimation)
-		ProcessIK();
+	if(EnableAnimation) ProcessIK();
 
-	if(EnablePhysics)
-		ProcessPhysics(dt);
+	if(EnablePhysics) ProcessPhysics(dt);
 
 	for (Bone& bone : bones)
 		FinalTransform[bone.id] = bone.GlobalTransform * bone.InverseBindPose;
@@ -50,8 +47,7 @@ void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool DebugD
 	glBufferData(GL_UNIFORM_BUFFER, FinalTransform.size() * sizeof(glm::mat4), FinalTransform.data(), GL_STREAM_DRAW);
 	glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo);
 
-	if(EnableAnimation)
-		ProcessMorph();
+	if(EnableAnimation) ProcessMorph();
 
 	glUseProgram(shader->program);
 	glBindVertexArray(vao);
@@ -355,8 +351,8 @@ void Model::RigidBodyInit()
 		if (pmxBody.physics_calc_type == 0)
 		{
 			body.btBody->setCollisionFlags(body.btBody->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
-			body.btBody->setActivationState(DISABLE_DEACTIVATION);
 		}
+		body.btBody->setActivationState(DISABLE_DEACTIVATION);
 
 		world->addRigidBody(body.btBody, 1 << pmxBody.group, pmxBody.mask);
 
@@ -701,8 +697,8 @@ void Model::ProcessPhysics(float dt)
 		if (body.pmxBody->physics_calc_type != 0)continue;
 		if (!body.bone)continue;
 
-		glm::mat4 mat = body.bone->GlobalTransform * body.fromBone;
 		btTransform transform;
+		glm::mat4 mat = body.bone->GlobalTransform * body.fromBone;
 		transform.setFromOpenGLMatrix((float*)&mat);
 		body.btBody->getMotionState()->setWorldTransform(transform);
 	}
@@ -720,6 +716,7 @@ void Model::ProcessPhysics(float dt)
 		glm::mat4 mat;
 		transform.getOpenGLMatrix((float*)&mat);
 		body.bone->GlobalTransform = mat * body.fromBody;
+
 	}
 }
 
