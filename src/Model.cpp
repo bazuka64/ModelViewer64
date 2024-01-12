@@ -28,6 +28,8 @@ void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool DebugD
 	// Update LocalTransform
 	ProcessAnimation(EnableAnimation);
 
+	GrantParent();
+
 	// ‘S‚Ä‚Ìe‚ª‚Q”Ô–Ú‚É‚ ‚é‚Æ‚«
 	Bone* root = &bones[0];
 	if (bones[0].children.size() == 0 && bones.size() > 1)
@@ -558,7 +560,6 @@ void Model::ProcessAnimation(bool EnableAnimation)
 {
 	for (Bone& bone : bones)
 	{
-		
 		if (anim && EnableAnimation && anim->boneMap.find(bone.name) != anim->boneMap.end())
 		{
 			// search
@@ -573,26 +574,24 @@ void Model::ProcessAnimation(bool EnableAnimation)
 			if (i == 0)bone.lastFrame = i;
 
 			// interpolate
-			glm::vec3 trans;
-			glm::quat rot;
 			if (i == bone_frames.size() || i == 0)
 			{
 				if (i == 0)i++;
 				Animation::BoneFrame& bf = bone_frames[i - 1];
-				trans = bf.position;
-				rot = bf.rotation;
+				bone.trans = bf.position;
+				bone.rot = bf.rotation;
 			}
 			else
 			{
 				Animation::BoneFrame& bf0 = bone_frames[i - 1];
 				Animation::BoneFrame& bf1 = bone_frames[i];
 				float factor = (animFrame - bf0.frame) / (bf1.frame - bf0.frame);
-				trans = bf0.position + (bf1.position - bf0.position) * factor;
-				rot = glm::slerp(bf0.rotation, bf1.rotation, factor);
+				bone.trans = bf0.position + (bf1.position - bf0.position) * factor;
+				bone.rot = glm::slerp(bf0.rotation, bf1.rotation, factor);
 			}
 
-			glm::mat4 transMat = glm::translate(glm::mat4(1), trans);
-			glm::mat4 rotMat = glm::mat4_cast(rot);
+			glm::mat4 transMat = glm::translate(glm::mat4(1), bone.trans);
+			glm::mat4 rotMat = glm::mat4_cast(bone.rot);
 			bone.LocalTransform = bone.ParentOffset * transMat * rotMat;
 		}
 	}
@@ -663,6 +662,33 @@ void Model::ProcessIK()
 
 				UpdateGlobalTransform(linkBone);
 			}
+		}
+	}
+}
+
+void Model::GrantParent()
+{
+	// •t—^e
+	for (Bone& bone : bones)
+	{
+		if (bone.pmxBone->grant_parent_index)
+		{
+			glm::mat4 transMat{ 1 };
+			glm::mat4 rotMat{ 1 };
+			if (bone.pmxBone->bone_flag & 0x0100)
+			{
+				// ‰ñ“]•t—^
+				glm::quat parentRot = bones[bone.pmxBone->grant_parent_index].rot * bone.pmxBone->grant_weight;
+				rotMat = glm::mat4_cast(bone.rot * parentRot);
+			}
+			else if (bone.pmxBone->bone_flag & 0x0200)
+			{
+				// ˆÚ“®•t—^
+				glm::vec3 parentTrans = bones[bone.pmxBone->grant_parent_index].trans * bone.pmxBone->grant_weight;
+				transMat = glm::translate(glm::mat4(1), parentTrans + bone.trans);
+			}
+
+			bone.LocalTransform = bone.ParentOffset * transMat * rotMat;
 		}
 	}
 }

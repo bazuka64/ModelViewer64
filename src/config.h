@@ -19,6 +19,6 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#define print(x) std::cout << x << std::endl
+#define print(x) std::cout << (x) << std::endl
 #include <map>
 #include <algorithm>

@@ -49,6 +49,8 @@ public:
 		// dynamic change
 		glm::mat4 GlobalTransform;
 		glm::mat4 LocalTransform;
+		glm::vec3 trans;
+		glm::quat rot;
 		int lastFrame;
 	};
 	std::vector<Bone> bones;
@@ -95,6 +97,7 @@ private:
 	void MorphInit();
 
 	void ProcessAnimation(bool EnableAnimation);
+	void GrantParent();
 	void ProcessIK();
 	void ProcessPhysics(float dt);
 	void ProcessMorph();
