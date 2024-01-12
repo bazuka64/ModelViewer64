@@ -9,11 +9,11 @@ class Grid
 {
 public:
 	int GridSize = 20;
-	int GridNum = 4;
+	int GridNum = 10;
+	int ModelID;
 
 	void AddModel(Model* model)
 	{
-		static int ModelID;
 		model->transform.position.x = ModelID % GridNum * GridSize + GridSize / 2;
 		model->transform.position.z = -(ModelID / GridNum * GridSize + GridSize / 2);
 		model->transform.UpdateMatrix();
@@ -30,7 +30,7 @@ public:
 		glLoadMatrixf((float*)&camera->projection);
 
 		glColor3f(1, 1, 1);
-		glLineWidth(5);
+		glLineWidth(1);
 		glBegin(GL_LINES);
 
 		for (int i = 0; i < GridNum + 1; i++)

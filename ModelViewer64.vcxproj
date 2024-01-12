@@ -145,6 +145,7 @@
     <ClInclude Include="lib\MMDFormats\Vmd.h" />
     <ClInclude Include="src\Animation.h" />
     <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\DebugDrawer.h" />
     <ClInclude Include="src\Grid.h" />
     <ClInclude Include="src\Model.h" />
     <ClInclude Include="src\Shader.h" />

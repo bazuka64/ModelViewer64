@@ -1,4 +1,5 @@
 #include "Model.h"
+#include "DebugDrawer.h"
 
 Model::Model(std::string path, Shader* shader) :shader(shader)
 {
@@ -19,7 +20,7 @@ Model::Model(std::string path, Shader* shader) :shader(shader)
 	MorphInit();
 }
 
-void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool Debug)
+void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool DebugDraw)
 {
 	if (EnableAnimation)
 		animFrame += dt * 30;
@@ -68,7 +69,7 @@ void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool Debug)
 	glBindVertexArray(0);
 	glUseProgram(0);
 
-	if (Debug)
+	if (DebugDraw)
 		DrawDebug();
 }
 
@@ -77,7 +78,6 @@ void Model::DrawDebug()
 	extern Camera* camera;
 
 	glDisable(GL_DEPTH_TEST);
-	glLineWidth(5);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadMatrixf((float*)&camera->projection);
@@ -86,7 +86,9 @@ void Model::DrawDebug()
 	glMatrixMode(GL_MODELVIEW);
 	glLoadMatrixf((float*)&ModelView);
 
+	// draw bone
 	glColor3f(0, 1, 0);
+	glLineWidth(5);
 	for (Bone& bone : bones)
 	{
 		if (bone.target_position == glm::vec3(0))continue;
@@ -103,29 +105,9 @@ void Model::DrawDebug()
 		glPopMatrix();
 	}
 
-	glColor3f(1, 0, 0);
-	for (RigidBody& body : bodies)
-	{
-		// draw only capsule shape
-		if (body.pmxBody->shape != 2)continue;
-
-		btTransform transform;
-		body.btBody->getMotionState()->getWorldTransform(transform);
-		glm::mat4 mat;
-		transform.getOpenGLMatrix((float*)&mat);
-
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		glMultMatrixf((float*)&mat);
-
-		float capsule_height = body.pmxBody->size[1];
-		glBegin(GL_LINES);
-		glVertex3f(0, capsule_height / 2, 0);
-		glVertex3f(0, -capsule_height / 2, 0);
-		glEnd();
-
-		glPopMatrix();
-	}
+	// draw rigid body
+	glLineWidth(1);
+	world->debugDrawWorld();
 
 	glEnable(GL_DEPTH_TEST);
 }
@@ -274,6 +256,8 @@ void Model::BoneInit()
 			bone.ParentOffset = glm::translate(glm::mat4(1), bone.position);
 		}
 
+		bone.LocalTransform = bone.ParentOffset;
+
 		if (pmxBone.ik_target_bone_index != 0)
 			ikBones.push_back(&bone);
 	}
@@ -309,6 +293,10 @@ void Model::WorldInit()
 	auto solver = new btSequentialImpulseConstraintSolver();
 	world = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, configuration);
 	world->setGravity(btVector3(0, -10 * 10, 0));
+
+	DebugDrawer* drawer = new DebugDrawer();
+	drawer->setDebugMode(btIDebugDraw::DBG_DrawWireframe);
+	world->setDebugDrawer(drawer);
 }
 
 void Model::RigidBodyInit()
@@ -570,7 +558,7 @@ void Model::ProcessAnimation(bool EnableAnimation)
 {
 	for (Bone& bone : bones)
 	{
-		bone.LocalTransform = bone.ParentOffset;
+		
 		if (anim && EnableAnimation && anim->boneMap.find(bone.name) != anim->boneMap.end())
 		{
 			// search

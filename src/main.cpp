@@ -21,9 +21,10 @@ std::vector<Model*> models;
 Shader* shader;
 Grid* grid;
 Animation* anim;
+
 bool EnableAnimation = true;
 bool EnablePhysics = true;
-bool Debug = false;
+bool DebugDraw = false;
 
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -136,7 +137,7 @@ int main()
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
 
 	grid = new Grid();
 
@@ -169,7 +170,7 @@ int main()
 		grid->Draw();
 
 		for (Model* model : models)
-			model->Draw(dt, EnableAnimation, EnablePhysics, Debug);
+			model->Draw(dt, EnableAnimation, EnablePhysics, DebugDraw);
 
 		float end = glfwGetTime();
 
@@ -179,7 +180,7 @@ int main()
 
 		ImGui::Checkbox("Animation", &EnableAnimation);
 		ImGui::Checkbox("Physics", &EnablePhysics);
-		ImGui::Checkbox("Debug", &Debug);
+		ImGui::Checkbox("DebugDraw", &DebugDraw);
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
