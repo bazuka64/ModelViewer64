@@ -4,7 +4,6 @@
 	vmd bezier interpolation
 	mmd physics ボーン位置合わせ
 	mmd morph 頂点モーフ以外
-	mmd 付与親 眼球が動かない
 */
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -25,6 +24,9 @@ Animation* anim;
 bool EnableAnimation = true;
 bool EnablePhysics = true;
 bool DebugDraw = false;
+bool Mute = true;
+
+sf::Music music;
 
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -82,7 +84,6 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 			if (anim)
 			{
 				model->anim = anim;
-				EnableAnimation = true;
 			}
 		}
 		else if (stricmp(ext.c_str(), "vmd") == 0)
@@ -91,13 +92,22 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 			for (Model* model : models)
 			{
 				model->anim = anim;
-				model->animFrame = 0;
-				for (Model::Bone& bone : model->bones)
-					bone.lastFrame = 0;
-				for (Model::Morph& morph : model->morphs)
-					morph.lastFrame = 0;
+				model->Reset();
 			}
 			EnableAnimation = true;
+			music.setPlayingOffset(sf::seconds(0));
+		}
+		else if (stricmp(ext.c_str(), "mp3") == 0 || 
+				 stricmp(ext.c_str(), "wav") == 0)
+		{
+			
+			if (!music.openFromFile(path)) throw;
+
+			music.setVolume(Mute ? 0 : 100);
+			music.play();
+
+			for (Model* model : models)
+				model->Reset();
 		}
 	}
 }
@@ -149,6 +159,7 @@ int main()
 		"../../res/meirin/meirin.pmx",
 		"../../res/mima/mima.pmx",
 		"../../res/zettai_zetsumei.vmd",
+		"../../res/zettai_zetsumei.mp3",
 	};
 	DropCallback(window, std::size(paths), paths);
 
@@ -178,9 +189,22 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		ImGui::Checkbox("Animation", &EnableAnimation);
+		if (ImGui::Checkbox("Animation", &EnableAnimation))
+		{
+			if (EnableAnimation)
+				music.play();
+			else
+				music.pause();
+		}
 		ImGui::Checkbox("Physics", &EnablePhysics);
 		ImGui::Checkbox("DebugDraw", &DebugDraw);
+		if (ImGui::Checkbox("Mute", &Mute))
+		{
+			if (Mute)
+				music.setVolume(0);
+			else
+				music.setVolume(100);
+		}
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

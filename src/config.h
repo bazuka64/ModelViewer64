@@ -16,6 +16,8 @@
 
 #include <bullet/btBulletDynamicsCommon.h>
 
+#include <SFML/Audio.hpp>
+
 #include <fstream>
 #include <sstream>
 #include <iostream>

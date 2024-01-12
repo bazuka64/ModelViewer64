@@ -27,9 +27,8 @@ public:
 
 	struct Mesh
 	{
-		int index_count;
+		PmxMaterial* material;
 		int index_offset;
-		int texture_index;
 	};
 	std::vector<Mesh> meshes;
 	std::vector<Texture> textures;
@@ -86,6 +85,7 @@ public:
 
 	Model(std::string path, Shader* shader);
 	void Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool Debug);
+	void Reset();
 
 private:
 	void BuildBuffers();

@@ -56,12 +56,12 @@ void Model::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool DebugD
 
 	for (Mesh& mesh : meshes)
 	{
-		if (mesh.texture_index != -1)
-			glBindTexture(GL_TEXTURE_2D, textures[mesh.texture_index].id);
+		if (mesh.material->diffuse_texture_index != -1)
+		{
+			glBindTexture(GL_TEXTURE_2D, textures[mesh.material->diffuse_texture_index].id);
+		}
 
-		glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, (void*)(mesh.index_offset * sizeof(int)));
-
-		glBindTexture(GL_TEXTURE_2D, 0);
+		glDrawElements(GL_TRIANGLES, mesh.material->index_count, GL_UNSIGNED_INT, (void*)(mesh.index_offset * sizeof(int)));
 	}
 
 	glBindVertexArray(0);
@@ -108,6 +108,15 @@ void Model::DrawDebug()
 	world->debugDrawWorld();
 
 	glEnable(GL_DEPTH_TEST);
+}
+
+void Model::Reset()
+{
+	animFrame = 0;
+	for (Bone& bone : bones)
+		bone.lastFrame = 0;
+	for (Morph& morph : morphs)
+		morph.lastFrame = 0;
 }
 
 void Model::BuildBuffers()
@@ -202,10 +211,9 @@ void Model::MaterialInit(std::string path)
 	for (int i = 0; i < model.material_count; i++)
 	{
 		PmxMaterial& material = model.materials[i];
-		meshes[i].index_count = material.index_count;
+		meshes[i].material = &material;
 		meshes[i].index_offset = offset;
 		offset += material.index_count;
-		meshes[i].texture_index = material.diffuse_texture_index;
 	}
 
 	int lastPos = path.find_last_of("/\\");
