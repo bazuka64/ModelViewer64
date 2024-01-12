@@ -10,16 +10,19 @@
 #include "config.h"
 #include "Shader.h"
 #include "Camera.h"
-#include "Model.h"
+#include "MMDModel.h"
 #include "Animation.h"
 #include "Grid.h"
+#include "StaticModel.h"
+#include "Model.h"
 
 Camera* camera;
 glm::vec2 cursorPos;
 std::vector<Model*> models;
-Shader* shader;
+Shader* MMDShader;
+Shader* StaticShader;
 Grid* grid;
-Animation* anim;
+MMDAnimation* anim;
 
 bool EnableAnimation = true;
 bool EnablePhysics = true;
@@ -79,7 +82,7 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 
 		if (stricmp(ext.c_str(), "pmx") == 0)
 		{
-			Model* model = new Model(path, shader);
+			MMDModel* model = new MMDModel(path, MMDShader);
 			grid->AddModel(model);
 			if (anim)
 			{
@@ -88,11 +91,15 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 		}
 		else if (stricmp(ext.c_str(), "vmd") == 0)
 		{
-			anim = new Animation(path.c_str());
+			anim = new MMDAnimation(path.c_str());
 			for (Model* model : models)
 			{
-				model->anim = anim;
-				model->Reset();
+				if (typeid(*model) == typeid(MMDModel))
+				{
+					MMDModel* mmdModel = (MMDModel*)model;
+					mmdModel->anim = anim;
+					mmdModel->Reset();
+				}
 			}
 			EnableAnimation = true;
 			music.setPlayingOffset(sf::seconds(0));
@@ -107,7 +114,15 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 			music.play();
 
 			for (Model* model : models)
-				model->Reset();
+			{
+				if (typeid(*model) == typeid(MMDModel))
+					((MMDModel*)model)->Reset();
+			}
+		}
+		else if (stricmp(ext.c_str(), "obj") == 0)
+		{
+			StaticModel* model = new StaticModel(path, StaticShader);
+			grid->AddModel(model);
 		}
 	}
 }
@@ -153,13 +168,15 @@ int main()
 
 	camera = new Camera();
 
-	shader = new Shader("shader/shader.vert", "shader/shader.frag");
+	MMDShader = new Shader("shader/mmd.vert", "shader/mmd.frag");
+	StaticShader = new Shader("shader/static.vert", "shader/static.frag");
 
 	const char* paths[]{
 		"../../res/meirin/meirin.pmx",
 		"../../res/mima/mima.pmx",
 		"../../res/zettai_zetsumei.vmd",
 		"../../res/zettai_zetsumei.mp3",
+		"../../res/Mega Man X/model.obj",
 	};
 	DropCallback(window, std::size(paths), paths);
 
@@ -172,7 +189,9 @@ int main()
 
 		camera->UpdatePosition(window, dt);
 		camera->UpdateMatrix();
-		shader->SetCameraMatrix(camera);
+
+		MMDShader->SetCameraMatrix(camera);
+		StaticShader->SetCameraMatrix(camera);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -181,7 +200,12 @@ int main()
 		grid->Draw();
 
 		for (Model* model : models)
-			model->Draw(dt, EnableAnimation, EnablePhysics, DebugDraw);
+		{
+			if (typeid(*model) == typeid(MMDModel))
+				((MMDModel*)model)->Draw(dt, EnableAnimation, EnablePhysics, DebugDraw);
+			else if (typeid(*model) == typeid(StaticModel))
+				((StaticModel*)model)->Draw();
+		}
 
 		float end = glfwGetTime();
 

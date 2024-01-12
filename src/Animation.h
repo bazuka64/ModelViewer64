@@ -4,7 +4,7 @@
 
 using namespace vmd;
 
-class Animation
+class MMDAnimation
 {
 public:
 	struct BoneFrame
@@ -17,7 +17,7 @@ public:
 	std::map<std::string, std::vector<VmdFaceFrame*>> faceMap;
 	std::unique_ptr<VmdMotion> motion;
 
-	Animation(const char* path)
+	MMDAnimation(const char* path)
 	{
 		motion = VmdMotion::LoadFromFile(path);
 		if (!motion)throw;

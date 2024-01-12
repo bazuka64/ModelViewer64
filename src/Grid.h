@@ -1,6 +1,6 @@
 #pragma once
 #include "config.h"
-#include "Model.h"
+#include "MMDModel.h"
 
 extern std::vector<Model*> models;
 extern Camera* camera;

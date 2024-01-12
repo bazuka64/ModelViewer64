@@ -137,7 +137,7 @@
   <ItemGroup>
     <ClCompile Include="lib\MMDFormats\Pmx.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Model.cpp" />
+    <ClCompile Include="src\MMDModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib\MMDFormats\EncodingHelper.h" />
@@ -147,9 +147,11 @@
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\DebugDrawer.h" />
     <ClInclude Include="src\Grid.h" />
+    <ClInclude Include="src\MMDModel.h" />
     <ClInclude Include="src\Model.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\StaticModel.h" />
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="src\Transform.h" />
   </ItemGroup>
