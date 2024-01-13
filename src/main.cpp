@@ -52,7 +52,7 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		else
 		{
-			// object picking
+			// grid picking
 			double xpos, ypos;
 			glfwGetCursorPos(window, &xpos, &ypos);
 			int width, height;
@@ -95,6 +95,20 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+	else if (key == GLFW_KEY_X && action == GLFW_PRESS)
+	{
+		for (auto iter = models.begin(); iter != models.end(); iter++)
+		{
+			Model* model = *iter;
+			if (model->GridID == grid->SelectedGrid)
+			{
+				grid->modelMap[model->GridID] = NULL;
+				models.erase(iter);
+				delete model;
+				break;
+			}
+		}
+	}
 }
 
 void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
@@ -280,6 +294,7 @@ int main()
 			else
 				music.setVolume(100);
 		}
+		ImGui::Text("Press X: Delete Model");
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

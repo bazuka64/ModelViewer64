@@ -10,24 +10,34 @@ class Grid
 public:
 	int GridSize = 20;
 	int GridNum = 10;
-	int ModelID;
 	int SelectedGrid = -1;
+	std::vector<Model*> modelMap{ (unsigned int)(GridNum * GridNum) };
 
 	void AddModel(Model* model)
 	{
-		model->transform.position.x = ModelID % GridNum * GridSize + GridSize / 2;
-		model->transform.position.z = -(ModelID / GridNum * GridSize + GridSize / 2);
-
-		if (model->MaxSize)
+		for (int i = 0; i < modelMap.size(); i++)
 		{
-			float scale = GridSize / model->MaxSize;
-			model->transform.scale = glm::vec3(scale);
+			if (modelMap[i] == NULL)
+			{
+				int GridID = i;
+				modelMap[i] = model;
+				model->GridID = GridID;
+				models.push_back(model);
+
+				model->transform.position.x = GridID % GridNum * GridSize + GridSize / 2;
+				model->transform.position.z = -(GridID / GridNum * GridSize + GridSize / 2);
+
+				if (model->MaxSize)
+				{
+					float scale = GridSize / model->MaxSize;
+					model->transform.scale = glm::vec3(scale);
+				}
+
+				model->transform.UpdateMatrix();
+
+				break;
+			}
 		}
-
-		model->transform.UpdateMatrix();
-		models.push_back(model);
-
-		ModelID++;
 	}
 
 	void Select(glm::vec3 point)
