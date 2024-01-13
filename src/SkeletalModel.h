@@ -43,7 +43,7 @@ public:
 	{
 		this->shader = shader;
 
-		scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_GenNormals);
+		scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_GenNormals | aiProcess_GenBoundingBoxes);
 		if (!scene)
 		{
 			print(importer.GetErrorString());
@@ -53,13 +53,16 @@ public:
 		//animation = scene->mAnimations[0];
 		animation = scene->mAnimations[scene->mNumAnimations-1];
 
+		glm::vec3 max(0);
+		glm::vec3 min(0);
+
 		meshes.resize(scene->mNumMeshes);
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* aiMesh = scene->mMeshes[i];
 			Mesh& mesh = meshes[i];
 			mesh.aiMesh = aiMesh;
-
+			
 			std::vector<Vertex> vertices(aiMesh->mNumVertices);
 			for (int j = 0; j < aiMesh->mNumVertices; j++)
 			{
@@ -139,7 +142,22 @@ public:
 			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
 			glBindVertexArray(0);
+
+			// scale
+			max = glm::max(max, glm::vec3(
+				aiMesh->mAABB.mMax.x,
+				aiMesh->mAABB.mMax.y,
+				aiMesh->mAABB.mMax.z
+			));
+			min = glm::min(min, glm::vec3(
+				aiMesh->mAABB.mMin.x,
+				aiMesh->mAABB.mMin.y,
+				aiMesh->mAABB.mMin.z
+			));
 		}
+
+		glm::vec3 size = max - min;
+		MaxSize = glm::max(size.x, glm::max(size.y, size.z));
 
 		if (bones.size() > 100)throw;
 		FinalTransform.resize(bones.size());

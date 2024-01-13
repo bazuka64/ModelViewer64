@@ -16,6 +16,13 @@ public:
 	{
 		model->transform.position.x = ModelID % GridNum * GridSize + GridSize / 2;
 		model->transform.position.z = -(ModelID / GridNum * GridSize + GridSize / 2);
+
+		if (model->MaxSize)
+		{
+			float scale = GridSize / model->MaxSize;
+			model->transform.scale = glm::vec3(scale);
+		}
+
 		model->transform.UpdateMatrix();
 		models.push_back(model);
 

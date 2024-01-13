@@ -185,9 +185,9 @@ int main()
 
 	camera = new Camera();
 
-	MMDShader = new Shader("shader/mmd.vert", "shader/mmd.frag");
-	StaticShader = new Shader("shader/static.vert", "shader/assimp.frag");
-	SkeletalShader = new Shader("shader/skeletal.vert", "shader/assimp.frag");
+	MMDShader = new Shader("../../shader/mmd.vert", "../../shader/mmd.frag");
+	StaticShader = new Shader("../../shader/static.vert", "../../shader/assimp.frag");
+	SkeletalShader = new Shader("../../shader/skeletal.vert", "../../shader/assimp.frag");
 
 	const char* paths[]{
 		"../../res/meirin/meirin.pmx",
