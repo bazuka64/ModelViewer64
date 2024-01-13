@@ -47,7 +47,36 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	{
+		if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		else
+		{
+			// object picking
+			double xpos, ypos;
+			glfwGetCursorPos(window, &xpos, &ypos);
+			int width, height;
+			glfwGetWindowSize(window, &width, &height);
+
+			float ndcX = 2 * (xpos / width) - 1;
+			float ndcY = 1 - 2 * (ypos / height);
+			glm::vec4 clipCoords(ndcX, ndcY, -1, 1);
+
+			glm::vec4 eyeCoords = glm::inverse(camera->projection)* clipCoords;
+			eyeCoords.z = -1;
+			eyeCoords.w = 0;
+
+			glm::vec3 worldCoords = glm::inverse(camera->view)* eyeCoords;
+			glm::vec3 rayDirection = glm::normalize(worldCoords);
+			
+			// x,z•½–Ê‚Æ‚ÌŒð“_‚ð’²‚×‚é
+			glm::vec3 n(0, 1, 0);
+			float t = -glm::dot(camera->position, n) / glm::dot(rayDirection, n);
+			glm::vec3 intersectionPoint = camera->position + t * rayDirection;
+
+			grid->Select(intersectionPoint);
+		}
+	}
 }
 
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)

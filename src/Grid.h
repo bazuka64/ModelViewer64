@@ -11,6 +11,7 @@ public:
 	int GridSize = 20;
 	int GridNum = 10;
 	int ModelID;
+	int SelectedGrid = -1;
 
 	void AddModel(Model* model)
 	{
@@ -27,6 +28,16 @@ public:
 		models.push_back(model);
 
 		ModelID++;
+	}
+
+	void Select(glm::vec3 point)
+	{
+		int gridX = glm::floor(point.x / GridSize);
+		int gridZ = glm::floor(- point.z / GridSize);
+		if (gridX >= 0 && gridX < GridNum && gridZ >= 0 && gridZ < GridNum)
+			SelectedGrid = gridX + gridZ * GridNum;
+		else
+			SelectedGrid = -1;
 	}
 
 	void Draw()
@@ -53,5 +64,21 @@ public:
 		}
 
 		glEnd();
+
+		if (SelectedGrid != -1)
+		{
+			glColor3f(1, 1, 0);
+			glLineWidth(5);
+			glBegin(GL_LINE_LOOP);
+
+			glm::vec3 pos(SelectedGrid % GridNum, 0, -SelectedGrid / GridNum);
+			pos *= GridSize;
+			glVertex3f(pos.x, pos.y, pos.z);
+			glVertex3f(pos.x + GridSize, 0, pos.z);
+			glVertex3f(pos.x + GridSize, 0, pos.z - GridSize);
+			glVertex3f(pos.x, 0, pos.z - GridSize);
+
+			glEnd();
+		}
 	}
 };
