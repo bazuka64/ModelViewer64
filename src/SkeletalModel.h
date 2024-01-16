@@ -159,7 +159,7 @@ public:
 		glm::vec3 size = max - min;
 		MaxSize = glm::max(size.x, glm::max(size.y, size.z));
 
-		if (bones.size() > 100)throw;
+		if (bones.size() > 200)throw;
 		FinalTransform.resize(bones.size());
 
 		int lastPos = path.find_last_of("/\\");

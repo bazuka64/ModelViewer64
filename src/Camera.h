@@ -23,8 +23,9 @@ public:
 	float yaw;
 	float pitch;
 
-	float speed = 10;
+	float speed = 50;
 	float sensitivity = 0.1;
+	float scrollSpeed = 10;
 
 	Camera()
 	{
@@ -72,7 +73,7 @@ public:
 
 	void UpdateScroll(float yoffset)
 	{
-		position += front * yoffset;
+		position += front * yoffset * scrollSpeed;
 		target = position + front;
 	}
 

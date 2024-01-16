@@ -11,7 +11,44 @@ public:
 	int GridSize = 20;
 	int GridNum = 10;
 	int SelectedGrid = -1;
+	int DestinationGrid = -1;
+	glm::vec3 offset;
 	std::vector<Model*> modelMap{ (unsigned int)(GridNum * GridNum) };
+
+	void ReallocModel()
+	{
+		Model* model = modelMap[SelectedGrid];
+		int gridID = PositionToGridID(model->transform.position + offset);
+		DestinationGrid = -1;
+
+		if (gridID != -1)
+		{
+			// swap model
+			if (modelMap[gridID])
+			{
+				Model* destModel = modelMap[gridID];
+				destModel->GridID = SelectedGrid;
+				modelMap[SelectedGrid] = destModel;
+
+				destModel->transform.position = GridIDToPosition(SelectedGrid);
+				destModel->transform.UpdateMatrix();
+			}
+			else
+				modelMap[SelectedGrid] = NULL;
+
+			model->GridID = gridID;
+			modelMap[gridID] = model;
+			SelectedGrid = gridID;
+
+			model->transform.position = GridIDToPosition(gridID);
+			model->transform.UpdateMatrix();
+		}
+		else
+		{
+			model->transform.position = GridIDToPosition(SelectedGrid);
+			model->transform.UpdateMatrix();
+		}
+	}
 
 	void AddModel(Model* model)
 	{
@@ -19,13 +56,12 @@ public:
 		{
 			if (modelMap[i] == NULL)
 			{
-				int GridID = i;
+				int gridID = i;
 				modelMap[i] = model;
-				model->GridID = GridID;
+				model->GridID = gridID;
 				models.push_back(model);
 
-				model->transform.position.x = GridID % GridNum * GridSize + GridSize / 2;
-				model->transform.position.z = -(GridID / GridNum * GridSize + GridSize / 2);
+				model->transform.position = GridIDToPosition(gridID);
 
 				if (model->MaxSize)
 				{
@@ -40,18 +76,29 @@ public:
 		}
 	}
 
-	void Select(glm::vec3 point)
+	glm::vec3 GridIDToPosition(int gridID)
 	{
-		int gridX = glm::floor(point.x / GridSize);
-		int gridZ = glm::floor(- point.z / GridSize);
+		glm::vec3 position;
+		position.x = gridID % GridNum * GridSize + GridSize / 2;
+		position.y = 0;
+		position.z = -(gridID / GridNum * GridSize + GridSize / 2);
+		return position;
+	}
+
+	int PositionToGridID(glm::vec3 position)
+	{
+		int gridX = glm::floor(position.x / GridSize);
+		int gridZ = glm::floor(- position.z / GridSize);
 		if (gridX >= 0 && gridX < GridNum && gridZ >= 0 && gridZ < GridNum)
-			SelectedGrid = gridX + gridZ * GridNum;
+			return gridX + gridZ * GridNum;
 		else
-			SelectedGrid = -1;
+			return -1;
 	}
 
 	void Draw()
 	{
+		glDisable(GL_DEPTH_TEST);
+
 		glMatrixMode(GL_MODELVIEW);
 		glLoadMatrixf((float*)&camera->view);
 		glMatrixMode(GL_PROJECTION);
@@ -76,19 +123,27 @@ public:
 		glEnd();
 
 		if (SelectedGrid != -1)
-		{
-			glColor3f(1, 1, 0);
-			glLineWidth(5);
-			glBegin(GL_LINE_LOOP);
+			DrawColor(SelectedGrid, glm::vec3(1,1,0));
 
-			glm::vec3 pos(SelectedGrid % GridNum, 0, -SelectedGrid / GridNum);
-			pos *= GridSize;
-			glVertex3f(pos.x, pos.y, pos.z);
-			glVertex3f(pos.x + GridSize, 0, pos.z);
-			glVertex3f(pos.x + GridSize, 0, pos.z - GridSize);
-			glVertex3f(pos.x, 0, pos.z - GridSize);
+		if (DestinationGrid != -1 && DestinationGrid != SelectedGrid)
+			DrawColor(DestinationGrid, glm::vec3(1, 0.5, 0));
 
-			glEnd();
-		}
+		glEnable(GL_DEPTH_TEST);
+	}
+
+	void DrawColor(int gridID, const glm::vec3& color)
+	{
+		glColor3fv((float*)&color);
+		glLineWidth(5);
+		glBegin(GL_LINE_LOOP);
+
+		glm::vec3 pos(gridID % GridNum, 0, -gridID / GridNum);
+		pos *= GridSize;
+		glVertex3f(pos.x, pos.y, pos.z);
+		glVertex3f(pos.x + GridSize, 0, pos.z);
+		glVertex3f(pos.x + GridSize, 0, pos.z - GridSize);
+		glVertex3f(pos.x, 0, pos.z - GridSize);
+
+		glEnd();
 	}
 };

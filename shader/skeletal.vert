@@ -13,7 +13,7 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-uniform mat4 FinalTransform[100];
+uniform mat4 FinalTransform[200];
 
 void main()
 {

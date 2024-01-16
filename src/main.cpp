@@ -17,6 +17,7 @@
 
 Camera* camera;
 glm::vec2 cursorPos;
+bool isDrag;
 std::vector<Model*> models;
 Shader* MMDShader;
 Shader* StaticShader;
@@ -30,15 +31,58 @@ bool DebugDraw = false;
 bool Mute = true;
 
 sf::Music music;
+bool isMainLoop = false;
+
+glm::vec3 RayCast(GLFWwindow* window)
+{
+	double xpos, ypos;
+	glfwGetCursorPos(window, &xpos, &ypos);
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+
+	float ndcX = 2 * (xpos / width) - 1;
+	float ndcY = 1 - 2 * (ypos / height);
+	glm::vec4 clipCoords(ndcX, ndcY, -1, 1);
+
+	glm::vec4 eyeCoords = glm::inverse(camera->projection) * clipCoords;
+	eyeCoords.z = -1;
+	eyeCoords.w = 0;
+
+	glm::vec3 worldCoords = glm::inverse(camera->view) * eyeCoords;
+	glm::vec3 rayDirection = glm::normalize(worldCoords);
+
+	// x,z•½–Ê‚Æ‚ÌŒð“_‚ð’²‚×‚é
+	glm::vec3 n(0, 1, 0);
+	float t = -glm::dot(camera->position, n) / glm::dot(rayDirection, n);
+	glm::vec3 intersectionPoint = camera->position + t * rayDirection;
+
+	return intersectionPoint;
+}
 
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	glm::vec2 pos(xpos, ypos);
+
 	if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
 	{
 		glm::vec2 deltaPos = pos - cursorPos;
 		camera->UpdateRotation(deltaPos);
 	}
+	else if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL
+		&& isDrag)
+	{
+		Model* model = grid->modelMap[grid->SelectedGrid];
+		if (model)
+		{
+			glm::vec3 intersectionPoint = RayCast(window);
+
+			model->transform.position = intersectionPoint - grid->offset;
+			model->transform.UpdateMatrix();
+
+			grid->DestinationGrid = grid->PositionToGridID(intersectionPoint);
+		}
+	}
+
 	cursorPos = pos;
 }
 
@@ -46,35 +90,31 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
 		if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		else
 		{
-			// grid picking
-			double xpos, ypos;
-			glfwGetCursorPos(window, &xpos, &ypos);
-			int width, height;
-			glfwGetWindowSize(window, &width, &height);
+			glm::vec3 intersectionPoint = RayCast(window);
 
-			float ndcX = 2 * (xpos / width) - 1;
-			float ndcY = 1 - 2 * (ypos / height);
-			glm::vec4 clipCoords(ndcX, ndcY, -1, 1);
+			grid->SelectedGrid = grid->PositionToGridID(intersectionPoint);
 
-			glm::vec4 eyeCoords = glm::inverse(camera->projection)* clipCoords;
-			eyeCoords.z = -1;
-			eyeCoords.w = 0;
-
-			glm::vec3 worldCoords = glm::inverse(camera->view)* eyeCoords;
-			glm::vec3 rayDirection = glm::normalize(worldCoords);
-			
-			// x,z•½–Ê‚Æ‚ÌŒð“_‚ð’²‚×‚é
-			glm::vec3 n(0, 1, 0);
-			float t = -glm::dot(camera->position, n) / glm::dot(rayDirection, n);
-			glm::vec3 intersectionPoint = camera->position + t * rayDirection;
-
-			grid->Select(intersectionPoint);
+			if (grid->SelectedGrid != -1 &&
+				grid->modelMap[grid->SelectedGrid] != NULL)
+			{
+				isDrag = true;
+				grid->offset = intersectionPoint - grid->modelMap[grid->SelectedGrid]->transform.position;
+			}
+		}
+	}
+	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE
+		&& glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL)
+	{
+		if (isDrag)
+		{
+			grid->ReallocModel();
+			isDrag = false;
 		}
 	}
 }
@@ -154,7 +194,8 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 			if (!music.openFromFile(path)) throw;
 
 			music.setVolume(Mute ? 0 : 100);
-			music.play();
+			if(isMainLoop)
+				music.play();
 
 			for (Model* model : models)
 			{
@@ -242,6 +283,9 @@ int main()
 	};
 	DropCallback(window, std::size(paths), paths);
 
+	music.play();
+	isMainLoop = true;
+
 	float prevTime = glfwGetTime();
 	while (!glfwWindowShouldClose(window))
 	{
@@ -295,6 +339,7 @@ int main()
 				music.setVolume(100);
 		}
 		ImGui::Text("Press X: Delete Model");
+		ImGui::SliderFloat("Camera Speed", &camera->speed, 1, 100, "%0.f");
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -12,9 +12,11 @@ float ambient = 0.5;
 
 void main()
 {
+	vec4 texColor = texture(tex0, fuv);
+	if(texColor.a < 0.3) discard;
+
 	float diffuse = abs(dot(fnormal, lightDir));
 	float light = ambient + (1 - ambient) * diffuse;
 
-	vec4 texColor = texture(tex0, fuv);
 	color = vec4(texColor.rgb * light, texColor.a);
 }
