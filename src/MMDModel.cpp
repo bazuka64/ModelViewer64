@@ -6,9 +6,8 @@ extern bool EnablePhysics;
 extern bool DebugDraw;
 
 MMDModel::MMDModel(std::string path, Shader* shader)
+	: Model(path, shader)
 {
-	this->shader = shader;
-
 	std::ifstream file(path, std::ios::binary);
 	if (file.fail())throw;
 	model.Read(&file);

@@ -17,7 +17,6 @@
 
 Camera* camera;
 glm::vec2 cursorPos;
-bool isDrag;
 std::vector<Model*> models;
 Shader* MMDShader;
 Shader* StaticShader;
@@ -32,6 +31,29 @@ bool Mute = true;
 
 sf::Music music;
 bool isMainLoop = false;
+bool isDrag;
+
+void LoadFile(std::string path, int gridID);
+
+void LoadSaveFile(const char* savefile)
+{
+	for (int i = 0; i < grid->modelMap.size(); i++)
+		grid->modelMap[i] = NULL;
+	if(models.size())
+		delete[] models.data();
+	models.clear();
+
+	std::ifstream file(savefile);
+	std::string line;
+	while (std::getline(file, line))
+	{
+		int pos = line.find_first_of(" ");
+		int gridID = atoi(line.substr(0, pos).c_str());
+		std::string path = line.substr(pos + 1);
+
+		LoadFile(path, gridID);
+	}
+}
 
 glm::vec3 RayCast(GLFWwindow* window)
 {
@@ -137,6 +159,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		glfwSetWindowShouldClose(window, true);
 	else if (key == GLFW_KEY_X && action == GLFW_PRESS)
 	{
+		if (isDrag)return;
 		if (grid->SelectedGrid == -1)return;
 		Model* model = grid->modelMap[grid->SelectedGrid];
 		if (!model)return;
@@ -154,6 +177,82 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	}
 }
 
+// gridID auto : -1
+void LoadFile(std::string path, int gridID)
+{
+	int dotPos = path.find_last_of(".");
+	std::string ext = path.substr(dotPos + 1);
+	int slashPos = path.find_last_of("/\\");
+	std::string filename = path.substr(slashPos + 1);
+
+	if (stricmp(ext.c_str(), "pmx") == 0)
+	{
+		MMDModel* model = new MMDModel(path, MMDShader);
+		grid->AddModel(model, gridID);
+		if (animation)
+		{
+			model->animation = animation;
+		}
+	}
+	else if (stricmp(ext.c_str(), "vmd") == 0)
+	{
+		animation = new MMDAnimation(path.c_str());
+		for (Model* model : models)
+		{
+			if (typeid(*model) == typeid(MMDModel))
+			{
+				MMDModel* mmdModel = (MMDModel*)model;
+				mmdModel->animation = animation;
+				mmdModel->Reset();
+			}
+		}
+		EnableAnimation = true;
+		music.setPlayingOffset(sf::seconds(0));
+	}
+	else if (stricmp(ext.c_str(), "mp3") == 0 ||
+		stricmp(ext.c_str(), "wav") == 0)
+	{
+
+		if (!music.openFromFile(path)) throw;
+
+		music.setVolume(Mute ? 0 : 100);
+		if (isMainLoop)
+			music.play();
+
+		for (Model* model : models)
+		{
+			if (typeid(*model) == typeid(MMDModel))
+				((MMDModel*)model)->Reset();
+		}
+	}
+	else if (stricmp(ext.c_str(), "obj") == 0)
+	{
+		StaticModel* model = new StaticModel(path, StaticShader);
+		grid->AddModel(model, gridID);
+	}
+	else if (stricmp(ext.c_str(), "dae") == 0 ||
+		stricmp(ext.c_str(), "fbx") == 0)
+	{
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile(path, 0);
+		if (!scene)
+		{
+			print(importer.GetErrorString());
+			throw;
+		}
+		Model* model = NULL;
+		if (scene->HasAnimations())
+			model = new SkeletalModel(path, SkeletalShader);
+		else
+			model = new StaticModel(path, StaticShader);
+		grid->AddModel(model, gridID);
+	}
+	else if (stricmp(filename.c_str(), "savefile.txt") == 0)
+	{
+		LoadSaveFile(path.c_str());
+	}
+}
+
 void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 {
 	oguna::EncodingConverter conv;
@@ -163,71 +262,7 @@ void DropCallback(GLFWwindow* window, int path_count, const char* paths[])
 		std::string path;
 		conv.Utf8ToCp932(paths[i], strlen(paths[i]), &path);
 
-		int dotPos = path.find_last_of(".");
-		std::string ext = path.substr(dotPos + 1);
-
-		if (stricmp(ext.c_str(), "pmx") == 0)
-		{
-			MMDModel* model = new MMDModel(path, MMDShader);
-			grid->AddModel(model);
-			if (animation)
-			{
-				model->animation = animation;
-			}
-		}
-		else if (stricmp(ext.c_str(), "vmd") == 0)
-		{
-			animation = new MMDAnimation(path.c_str());
-			for (Model* model : models)
-			{
-				if (typeid(*model) == typeid(MMDModel))
-				{
-					MMDModel* mmdModel = (MMDModel*)model;
-					mmdModel->animation = animation;
-					mmdModel->Reset();
-				}
-			}
-			EnableAnimation = true;
-			music.setPlayingOffset(sf::seconds(0));
-		}
-		else if (stricmp(ext.c_str(), "mp3") == 0 || 
-				 stricmp(ext.c_str(), "wav") == 0)
-		{
-			
-			if (!music.openFromFile(path)) throw;
-
-			music.setVolume(Mute ? 0 : 100);
-			if(isMainLoop)
-				music.play();
-
-			for (Model* model : models)
-			{
-				if (typeid(*model) == typeid(MMDModel))
-					((MMDModel*)model)->Reset();
-			}
-		}
-		else if (stricmp(ext.c_str(), "obj") == 0)
-		{
-			StaticModel* model = new StaticModel(path, StaticShader);
-			grid->AddModel(model);
-		}
-		else if (stricmp(ext.c_str(), "dae") == 0 ||
-				 stricmp(ext.c_str(), "fbx") == 0)
-		{
-			Assimp::Importer importer;
-			const aiScene* scene = importer.ReadFile(path, 0);
-			if (!scene)
-			{
-				print(importer.GetErrorString());
-				throw;
-			}
-			Model* model = NULL;
-			if (scene->HasAnimations())
-				model = new SkeletalModel(path, SkeletalShader);
-			else
-				model = new StaticModel(path, StaticShader);
-			grid->AddModel(model);
-		}
+		LoadFile(path, -1);
 	}
 }
 
@@ -343,7 +378,11 @@ int main()
 		}
 		ImGui::Text("Press X: Delete Model");
 		ImGui::SliderFloat("Camera Speed", &camera->speed, 1, 100, "%0.f");
-
+		if (ImGui::Button("Save"))
+		{
+			grid->Save("../../res/savefile.txt");
+		}
+		
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		glfwSwapBuffers(window);

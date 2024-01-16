@@ -26,9 +26,8 @@ public:
 	std::vector<Texture> textures;
 
 	StaticModel(std::string path, Shader* shader)
+		:Model(path, shader)
 	{
-		this->shader = shader;
-
 		scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_GenNormals | aiProcess_GenBoundingBoxes);
 		if (!scene)
 		{

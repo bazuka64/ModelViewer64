@@ -15,6 +15,22 @@ public:
 	glm::vec3 offset;
 	std::vector<Model*> modelMap{ (unsigned int)(GridNum * GridNum) };
 
+	void Save(const char* path)
+	{
+		std::ofstream file(path);
+
+		for (int i = 0; i < modelMap.size(); i++)
+		{
+			Model* model = modelMap[i];
+			if (model)
+			{
+				file << i << " " << model->path << std::endl;
+			}
+		}
+	}
+
+	
+
 	void ReallocModel()
 	{
 		Model* model = modelMap[SelectedGrid];
@@ -48,27 +64,35 @@ public:
 		}
 	}
 
-	void AddModel(Model* model)
+	void AddModelWithID(Model* model, int gridID)
 	{
-		for (int i = 0; i < modelMap.size(); i++)
+		modelMap[gridID] = model;
+		models.push_back(model);
+
+		model->transform.position = GridIDToPosition(gridID);
+
+		if (model->MaxSize)
 		{
-			if (modelMap[i] == NULL)
+			float scale = GridSize / model->MaxSize;
+			model->transform.scale = glm::vec3(scale);
+		}
+
+		model->transform.UpdateMatrix();
+	}
+
+	void AddModel(Model* model, int gridID)
+	{
+		if (gridID != -1)
+			AddModelWithID(model, gridID);
+		else
+		{
+			for (int i = 0; i < modelMap.size(); i++)
 			{
-				int gridID = i;
-				modelMap[i] = model;
-				models.push_back(model);
-
-				model->transform.position = GridIDToPosition(gridID);
-
-				if (model->MaxSize)
+				if (modelMap[i] == NULL)
 				{
-					float scale = GridSize / model->MaxSize;
-					model->transform.scale = glm::vec3(scale);
+					AddModelWithID(model, i);
+					break;
 				}
-
-				model->transform.UpdateMatrix();
-
-				break;
 			}
 		}
 	}

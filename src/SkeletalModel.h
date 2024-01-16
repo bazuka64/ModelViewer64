@@ -39,10 +39,9 @@ public:
 	aiAnimation* animation;
 	float AnimationTime;
 
-	SkeletalModel(std::string path, Shader* shader)
+	SkeletalModel(std::string path, Shader* shader) 
+		: Model(path, shader)
 	{
-		this->shader = shader;
-
 		scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_GenNormals | aiProcess_GenBoundingBoxes);
 		if (!scene)
 		{
@@ -178,7 +177,13 @@ public:
 				{
 					boostPath = boostPath.filename();
 				}
-				textures[i].Load(dir + boostPath.string());
+				std::string filename = boostPath.string();
+
+				// hardcode for Pokedex 3D Pro
+				if (filename[0] == 'E' && filename[1] == 'f')
+					continue;
+
+				textures[i].Load(dir + filename);
 			}
 		}
 	}
@@ -199,7 +204,11 @@ public:
 		for (Mesh& mesh : meshes)
 		{
 			glBindVertexArray(mesh.vao);
-			glBindTexture(GL_TEXTURE_2D, textures[mesh.aiMesh->mMaterialIndex].id);
+
+			Texture& texture = textures[mesh.aiMesh->mMaterialIndex];
+			if (texture.id == 0)continue;
+
+			glBindTexture(GL_TEXTURE_2D, texture.id);
 
 			glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, 0);
 
