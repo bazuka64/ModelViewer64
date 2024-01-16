@@ -7,7 +7,6 @@ public:
 	Shader* shader;
 	Transform transform;
 	float MaxSize;
-	int GridID;
 
 	virtual ~Model() {} // need
 };

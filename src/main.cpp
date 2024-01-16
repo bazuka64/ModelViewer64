@@ -137,12 +137,15 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		glfwSetWindowShouldClose(window, true);
 	else if (key == GLFW_KEY_X && action == GLFW_PRESS)
 	{
+		if (grid->SelectedGrid == -1)return;
+		Model* model = grid->modelMap[grid->SelectedGrid];
+		if (!model)return;
+
 		for (auto iter = models.begin(); iter != models.end(); iter++)
 		{
-			Model* model = *iter;
-			if (model->GridID == grid->SelectedGrid)
+			if (model == *iter)
 			{
-				grid->modelMap[model->GridID] = NULL;
+				grid->modelMap[grid->SelectedGrid] = NULL;
 				models.erase(iter);
 				delete model;
 				break;

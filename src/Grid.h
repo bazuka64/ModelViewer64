@@ -27,7 +27,6 @@ public:
 			if (modelMap[gridID])
 			{
 				Model* destModel = modelMap[gridID];
-				destModel->GridID = SelectedGrid;
 				modelMap[SelectedGrid] = destModel;
 
 				destModel->transform.position = GridIDToPosition(SelectedGrid);
@@ -36,7 +35,6 @@ public:
 			else
 				modelMap[SelectedGrid] = NULL;
 
-			model->GridID = gridID;
 			modelMap[gridID] = model;
 			SelectedGrid = gridID;
 
@@ -58,7 +56,6 @@ public:
 			{
 				int gridID = i;
 				modelMap[i] = model;
-				model->GridID = gridID;
 				models.push_back(model);
 
 				model->transform.position = GridIDToPosition(gridID);
