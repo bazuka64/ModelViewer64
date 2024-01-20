@@ -109,6 +109,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>lib/libsm64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>sm64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -130,6 +132,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>lib/libsm64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>sm64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -145,6 +149,8 @@
     <ClInclude Include="lib\MMDFormats\EncodingHelper.h" />
     <ClInclude Include="lib\MMDFormats\Pmx.h" />
     <ClInclude Include="lib\MMDFormats\Vmd.h" />
+    <ClInclude Include="src\AABB.h" />
+    <ClInclude Include="src\MarioModel.h" />
     <ClInclude Include="src\MMDAnimation.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\DebugDrawer.h" />
@@ -154,6 +160,7 @@
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\config.h" />
     <ClInclude Include="src\SkeletalModel.h" />
+    <ClInclude Include="src\sm64_audio.h" />
     <ClInclude Include="src\StaticModel.h" />
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="src\Transform.h" />

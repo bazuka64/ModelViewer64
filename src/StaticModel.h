@@ -51,8 +51,11 @@ public:
 				vertices[j].position[0] = aiMesh->mVertices[j].x;
 				vertices[j].position[1] = aiMesh->mVertices[j].y;
 				vertices[j].position[2] = aiMesh->mVertices[j].z;
-				vertices[j].uv[0] = aiMesh->mTextureCoords[0][j].x;
-				vertices[j].uv[1] = aiMesh->mTextureCoords[0][j].y;
+				if (aiMesh->mTextureCoords[0])
+				{
+					vertices[j].uv[0] = aiMesh->mTextureCoords[0][j].x;
+					vertices[j].uv[1] = aiMesh->mTextureCoords[0][j].y;
+				}
 				vertices[j].normal[0] = aiMesh->mNormals[j].x;
 				vertices[j].normal[1] = aiMesh->mNormals[j].y;
 				vertices[j].normal[2] = aiMesh->mNormals[j].z;
@@ -106,6 +109,8 @@ public:
 
 		glm::vec3 size = max - min;
 		MaxSize = glm::max(size.x, glm::max(size.y, size.z));
+		localMin = min;
+		localMax = max;
 
 		int lastPos = path.find_last_of("/\\");
 		std::string dir = path.substr(0, lastPos + 1);
@@ -132,7 +137,7 @@ public:
 	{
 		glUseProgram(shader->program);
 
-		glUniformMatrix4fv(shader->UniformLocations["model"], 1, false, (float*)&transform.model);
+		glUniformMatrix4fv(shader->UniformLocations["model"], 1, false, (float*)&transform.mat);
 
 		for (Mesh& mesh : meshes)
 		{
@@ -146,5 +151,7 @@ public:
 		}
 
 		glUseProgram(0);
+
+		DrawAABB();
 	}
 };

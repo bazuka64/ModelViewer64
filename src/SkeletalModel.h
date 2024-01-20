@@ -157,6 +157,8 @@ public:
 
 		glm::vec3 size = max - min;
 		MaxSize = glm::max(size.x, glm::max(size.y, size.z));
+		localMin = min;
+		localMax = max;
 
 		if (bones.size() > 200)throw;
 		FinalTransform.resize(bones.size());
@@ -199,7 +201,7 @@ public:
 
 		glUniformMatrix4fv(shader->UniformLocations["FinalTransform"], FinalTransform.size(), true, (float*)FinalTransform.data());
 
-		glUniformMatrix4fv(shader->UniformLocations["model"], 1, false, (float*)&transform.model);
+		glUniformMatrix4fv(shader->UniformLocations["model"], 1, false, (float*)&transform.mat);
 
 		for (Mesh& mesh : meshes)
 		{
@@ -217,6 +219,8 @@ public:
 		}
 
 		glUseProgram(0);
+
+		DrawAABB();
 	}
 
 private:

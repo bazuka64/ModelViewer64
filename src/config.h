@@ -22,11 +22,15 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#define SDL_MAIN_HANDLED
+#include <SDL2/SDL.h>
+
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #define print(x) std::cout << (x) << std::endl
 #include <map>
 #include <algorithm>
+#include <thread>
 
 #include <boost/filesystem.hpp>

@@ -1,4 +1,4 @@
-4 ../../res/mima/mima.pmx
-5 ../../res/meirin/meirin.pmx
-12 ../../res/Mega Man X/model.obj
-17 ../../res/3DS - Pokedex 3D Pro - 157 Typhlosion/anim.dae
+0 ../../res/meirin/meirin.pmx
+1 ../../res/mima/mima.pmx
+2 ../../res/Mega Man X/model.obj
+3 ../../res/3DS - Pokedex 3D Pro - 157 Typhlosion/anim.dae

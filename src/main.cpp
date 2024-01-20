@@ -14,19 +14,25 @@
 #include "StaticModel.h"
 #include "SkeletalModel.h"
 #include "Model.h"
+#include <libsm64/libsm64.h>
+#include "MarioModel.h"
+#include "sm64_audio.h"
 
 Camera* camera;
 glm::vec2 cursorPos;
 std::vector<Model*> models;
-Shader* MMDShader;
-Shader* StaticShader;
-Shader* SkeletalShader;
+MarioModel* mario;
+Shader* mmd_shader;
+Shader* static_shader;
+Shader* skeletal_shader;
+Shader* mario_shader;
 Grid* grid;
 MMDAnimation* animation;
 
 bool EnableAnimation = true;
 bool EnablePhysics = true;
 bool DebugDraw = false;
+bool DebugAABB = false;
 bool Mute = true;
 
 sf::Music music;
@@ -34,6 +40,18 @@ bool isMainLoop = false;
 bool isDrag;
 
 void LoadFile(std::string path, int gridID);
+
+void ResetAnimation()
+{
+	for (Model* model : models)
+	{
+		if (typeid(*model) == typeid(MMDModel))
+			((MMDModel*)model)->Reset();
+	}
+	music.setPlayingOffset(sf::seconds(0));
+	if (isMainLoop)
+		music.play();
+}
 
 void LoadSaveFile(const char* savefile)
 {
@@ -99,7 +117,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 			glm::vec3 intersectionPoint = RayCast(window);
 
 			model->transform.position = intersectionPoint - grid->offset;
-			model->transform.UpdateMatrix();
+			model->UpdateTransform();
 
 			grid->DestinationGrid = grid->PositionToGridID(intersectionPoint);
 		}
@@ -157,7 +175,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
-	else if (key == GLFW_KEY_X && action == GLFW_PRESS)
+	else if (key == GLFW_KEY_F && action == GLFW_PRESS)
 	{
 		if (isDrag)return;
 		if (grid->SelectedGrid == -1)return;
@@ -187,7 +205,7 @@ void LoadFile(std::string path, int gridID)
 
 	if (stricmp(ext.c_str(), "pmx") == 0)
 	{
-		MMDModel* model = new MMDModel(path, MMDShader);
+		MMDModel* model = new MMDModel(path, mmd_shader);
 		grid->AddModel(model, gridID);
 		if (animation)
 		{
@@ -203,11 +221,10 @@ void LoadFile(std::string path, int gridID)
 			{
 				MMDModel* mmdModel = (MMDModel*)model;
 				mmdModel->animation = animation;
-				mmdModel->Reset();
 			}
 		}
 		EnableAnimation = true;
-		music.setPlayingOffset(sf::seconds(0));
+		ResetAnimation();
 	}
 	else if (stricmp(ext.c_str(), "mp3") == 0 ||
 		stricmp(ext.c_str(), "wav") == 0)
@@ -216,18 +233,12 @@ void LoadFile(std::string path, int gridID)
 		if (!music.openFromFile(path)) throw;
 
 		music.setVolume(Mute ? 0 : 100);
-		if (isMainLoop)
-			music.play();
 
-		for (Model* model : models)
-		{
-			if (typeid(*model) == typeid(MMDModel))
-				((MMDModel*)model)->Reset();
-		}
+		ResetAnimation();
 	}
 	else if (stricmp(ext.c_str(), "obj") == 0)
 	{
-		StaticModel* model = new StaticModel(path, StaticShader);
+		StaticModel* model = new StaticModel(path, static_shader);
 		grid->AddModel(model, gridID);
 	}
 	else if (stricmp(ext.c_str(), "dae") == 0 ||
@@ -242,14 +253,50 @@ void LoadFile(std::string path, int gridID)
 		}
 		Model* model = NULL;
 		if (scene->HasAnimations())
-			model = new SkeletalModel(path, SkeletalShader);
+			model = new SkeletalModel(path, skeletal_shader);
 		else
-			model = new StaticModel(path, StaticShader);
+			model = new StaticModel(path, static_shader);
 		grid->AddModel(model, gridID);
 	}
 	else if (stricmp(filename.c_str(), "savefile.txt") == 0)
 	{
 		LoadSaveFile(path.c_str());
+	}
+	else if (stricmp(ext.c_str(), "z64") == 0)
+	{
+		static bool first = true;
+		if (!first)return;
+		first = false;
+
+		// sm64 rom
+		FILE* f = fopen(path.c_str(), "rb");
+		if (!f)throw;
+		fseek(f, 0, SEEK_END);
+		size_t length = ftell(f);
+		rewind(f);
+		uint8_t* rom = (uint8_t*)malloc(length);
+		fread(rom, 1, length, f);
+		fclose(f);
+
+		uint8_t* texture = (uint8_t*)malloc(4 * SM64_TEXTURE_WIDTH * SM64_TEXTURE_HEIGHT);
+
+		sm64_global_init(rom, texture);
+
+		sm64_audio_init(rom);
+		audio_init();
+
+		free(rom);
+
+		int size = 8000;
+		SM64Surface surfaces[]{
+			{0,0,0,{{size,0,size},{size,0,-size},{-size,0,size}}},
+			{0,0,0,{{-size,0,-size},{-size,0,size},{size,0,-size}}},
+		};
+		sm64_static_surfaces_load(surfaces, sizeof(surfaces) / sizeof(surfaces[0]));
+
+		mario = new MarioModel(path, mario_shader, texture);
+
+		grid->AddModel(mario, -1);
 	}
 }
 
@@ -279,6 +326,7 @@ int main()
 	gladLoadGL();
 	glfwSwapInterval(1);
 
+	// window position center
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 	int xpos = (mode->width - width) / 2;
@@ -306,10 +354,12 @@ int main()
 	grid = new Grid();
 
 	camera = new Camera();
+	camera->aspect = width / (float)height;
 
-	MMDShader = new Shader("../../shader/mmd.vert", "../../shader/mmd.frag");
-	StaticShader = new Shader("../../shader/static.vert", "../../shader/assimp.frag");
-	SkeletalShader = new Shader("../../shader/skeletal.vert", "../../shader/assimp.frag");
+	mmd_shader = new Shader("../../shader/mmd.vert", "../../shader/mmd.frag");
+	static_shader = new Shader("../../shader/static.vert", "../../shader/assimp.frag");
+	skeletal_shader = new Shader("../../shader/skeletal.vert", "../../shader/assimp.frag");
+	mario_shader = new Shader("../../shader/mario.vert", "../../shader/mario.frag");
 
 	const char* paths[]{
 		"../../res/meirin/meirin.pmx",
@@ -318,6 +368,7 @@ int main()
 		"../../res/zettai_zetsumei.mp3",
 		"../../res/Mega Man X/model.obj",
 		"../../res/3DS - Pokedex 3D Pro - 157 Typhlosion/anim.dae",
+		//"C:/Users/pentan/Desktop/baserom.us.z64",
 	};
 	DropCallback(window, std::size(paths), paths);
 
@@ -334,9 +385,10 @@ int main()
 		camera->UpdatePosition(window, dt);
 		camera->UpdateMatrix();
 
-		MMDShader->SetCameraMatrix(camera);
-		StaticShader->SetCameraMatrix(camera);
-		SkeletalShader->SetCameraMatrix(camera);
+		mmd_shader->SetCameraMatrix(camera);
+		static_shader->SetCameraMatrix(camera);
+		skeletal_shader->SetCameraMatrix(camera);
+		mario_shader->SetCameraMatrix(camera);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -354,6 +406,12 @@ int main()
 				((SkeletalModel*)model)->Draw(dt);
 		}
 
+		if (mario)
+		{
+			mario->Update(dt, window);
+			mario->Draw();
+		}
+
 		float end = glfwGetTime();
 
 		ImGui_ImplOpenGL3_NewFrame();
@@ -369,6 +427,7 @@ int main()
 		}
 		ImGui::Checkbox("Physics", &EnablePhysics);
 		ImGui::Checkbox("DebugDraw", &DebugDraw);
+		ImGui::Checkbox("DebugAABB", &DebugAABB);
 		if (ImGui::Checkbox("Mute", &Mute))
 		{
 			if (Mute)
@@ -376,11 +435,16 @@ int main()
 			else
 				music.setVolume(100);
 		}
-		ImGui::Text("Press X: Delete Model");
-		ImGui::SliderFloat("Camera Speed", &camera->speed, 1, 100, "%0.f");
+		ImGui::Text("Press F: Delete Model");
+		ImGui::Text("Drop sm64usROM(*.z64): Create Mario");
+		ImGui::SliderFloat("Camera Speed", &camera->speed, 1, 1000, "%0.f");
 		if (ImGui::Button("Save"))
 		{
 			grid->Save("../../res/savefile.txt");
+		}
+		if (ImGui::Button("Reset Animation"))
+		{
+			ResetAnimation();
 		}
 		
 		ImGui::Render();

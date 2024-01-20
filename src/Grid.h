@@ -8,7 +8,7 @@ extern Camera* camera;
 class Grid
 {
 public:
-	int GridSize = 20;
+	int GridSize = 400;
 	int GridNum = 10;
 	int SelectedGrid = -1;
 	int DestinationGrid = -1;
@@ -29,8 +29,6 @@ public:
 		}
 	}
 
-	
-
 	void ReallocModel()
 	{
 		Model* model = modelMap[SelectedGrid];
@@ -46,7 +44,7 @@ public:
 				modelMap[SelectedGrid] = destModel;
 
 				destModel->transform.position = GridIDToPosition(SelectedGrid);
-				destModel->transform.UpdateMatrix();
+				destModel->UpdateTransform();
 			}
 			else
 				modelMap[SelectedGrid] = NULL;
@@ -55,12 +53,12 @@ public:
 			SelectedGrid = gridID;
 
 			model->transform.position = GridIDToPosition(gridID);
-			model->transform.UpdateMatrix();
+			model->UpdateTransform();
 		}
 		else
 		{
 			model->transform.position = GridIDToPosition(SelectedGrid);
-			model->transform.UpdateMatrix();
+			model->UpdateTransform();
 		}
 	}
 
@@ -76,8 +74,12 @@ public:
 			float scale = GridSize / model->MaxSize;
 			model->transform.scale = glm::vec3(scale);
 		}
+		else
+		{
+			model->transform.scale = glm::vec3(20);
+		}
 
-		model->transform.UpdateMatrix();
+		model->UpdateTransform();
 	}
 
 	void AddModel(Model* model, int gridID)
@@ -142,6 +144,14 @@ public:
 		}
 
 		glEnd();
+
+		for(int i=0;i<modelMap.size();i++)
+		{
+			if (modelMap[i])
+			{
+				DrawColor(i, glm::vec3(0.3, 0.3, 0.3));
+			}
+		}
 
 		if (SelectedGrid != -1)
 			DrawColor(SelectedGrid, glm::vec3(1,1,0));

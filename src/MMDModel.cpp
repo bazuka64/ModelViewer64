@@ -58,7 +58,7 @@ void MMDModel::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool Deb
 	glUseProgram(shader->program);
 	glBindVertexArray(vao);
 
-	glUniformMatrix4fv(shader->UniformLocations["model"], 1, false, (float*)&transform.model);
+	glUniformMatrix4fv(shader->UniformLocations["model"], 1, false, (float*)&transform.mat);
 
 	for (Mesh& mesh : meshes)
 	{
@@ -74,6 +74,8 @@ void MMDModel::Draw(float dt, bool EnableAnimation, bool EnablePhysics, bool Deb
 	glUseProgram(0);
 
 	if (DebugDraw) DrawDebug();
+
+	DrawAABB();
 }
 
 void MMDModel::DrawDebug()
@@ -85,7 +87,7 @@ void MMDModel::DrawDebug()
 	glMatrixMode(GL_PROJECTION);
 	glLoadMatrixf((float*)&camera->projection);
 
-	glm::mat4 ModelView = camera->view * transform.model;
+	glm::mat4 ModelView = camera->view * transform.mat;
 	glMatrixMode(GL_MODELVIEW);
 	glLoadMatrixf((float*)&ModelView);
 
@@ -135,6 +137,17 @@ void MMDModel::BuildBuffers()
 		vertices[i].position[2] = -vertex.positon[2];
 		vertices[i].uv[0] = vertex.uv[0];
 		vertices[i].uv[1] = vertex.uv[1];
+
+		localMin = glm::min(localMin, glm::vec3(
+			vertices[i].position[0],
+			vertices[i].position[1],
+			vertices[i].position[2]
+		));
+		localMax = glm::max(localMax, glm::vec3(
+			vertices[i].position[0],
+			vertices[i].position[1],
+			vertices[i].position[2]
+		));
 
 		switch (vertex.skinning_type)
 		{

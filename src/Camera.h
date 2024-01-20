@@ -4,8 +4,8 @@
 class Camera
 {
 public:
-	glm::vec3 position{ 0,10,30 };
-	glm::vec3 target{ 0,10,0 };
+	glm::vec3 position{ -1000,1000,1000 };
+	glm::vec3 target{ 2000,0,-2000 };
 	glm::vec3 worldUp{ 0,1,0 };
 
 	glm::mat4 view;
@@ -13,7 +13,7 @@ public:
 
 	float fov = 45;
 	float aspect = 16. / 9.;
-	float znear = 0.1;
+	float znear = 10;
 	float zfar = 100000;
 
 	glm::vec3 front;
@@ -23,7 +23,7 @@ public:
 	float yaw;
 	float pitch;
 
-	float speed = 50;
+	float speed = 500;
 	float sensitivity = 0.1;
 	float scrollSpeed = 10;
 
